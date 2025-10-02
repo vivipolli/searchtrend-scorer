@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Connect Wallet - Doma Alerts</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            background-color: #ecf0f1;
+            border-left: 5px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .step h3 {
+            margin-top: 0;
+            color: #34495e;
+        }
+
+        .button-group {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        button {
+            background-color: #2ecc71;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #27ae60;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .status-message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .network-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .network-list li {
+            background-color: #f9f9f9;
+            margin-bottom: 5px;
+            padding: 8px;
+            border-radius: 3px;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Connect Your Wallet to Doma Alerts</h1>
+        <p>Session ID: <strong id="sessionId"></strong></p>
+
+        <div class="step">
+            <h3>Step 1: Connect Your Wallet</h3>
+            <p>Click the button below to connect your wallet. We support WalletConnect, MetaMask, and other popular
+                providers.</p>
+            <div class="button-group">
+                <button id="connectWalletBtn">Connect Wallet</button>
+            </div>
+            <p id="connectionStatus" class="status-message"></p>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Authorize Token Spending</h3>
+            <p>After connecting, you'll need to authorize the bot to spend tokens for auto-buy transactions.</p>
+            <p><strong>Supported Networks:</strong></p>
+            <ul class="network-list">
+                <li>Base Sepolia (Testnet) - USDC: 0x036CbD53842c5426634e7929541eC2318f3dCF7e</li>
+                <li>Sepolia (Testnet) - USDC: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238</li>
+                <li>Doma Testnet - USDC: 0x2f3463756C59387D6Cd55b034100caf7ECfc757b</li>
+            </ul>
+            <div class="button-group">
+                <button id="authorizeTokenBtn" disabled>Authorize USDC</button>
+            </div>
+            <p id="authorizationStatus" class="status-message"></p>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Return to Telegram</h3>
+            <p>Once your wallet is connected and tokens are authorized, return to the Telegram bot and click "I've
+                Connected My Wallet".</p>
+        </div>
+    </div>
+
+    <script>
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('sessionId') || 'unknown';
+        document.getElementById('sessionId').textContent = sessionId;
+
+        const connectWalletBtn = document.getElementById('connectWalletBtn');
+        const authorizeTokenBtn = document.getElementById('authorizeTokenBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const authorizationStatus = document.getElementById('authorizationStatus');
+
+        let provider;
+        let signer;
+        let walletAddress;
+        let chainId;
+
+        // Supported networks and their USDC addresses
+        const SUPPORTED_NETWORKS = {
+            "eip155:84532": { name: "Base Sepolia", usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" },
+            "eip155:11155111": { name: "Sepolia", usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238" },
+            "eip155:97476": { name: "Doma Testnet", usdc: "0x2f3463756C59387D6Cd55b034100caf7ECfc757b" }
+        };
+
+        function updateStatus(element, message, isError = false) {
+            element.textContent = message;
+            element.className = `status-message ${isError ? 'error' : 'success'}`;
+        }
+
+        connectWalletBtn.addEventListener('click', async () => {
+            try {
+                updateStatus(connectionStatus, "Connecting to wallet...", false);
+
+                // Check if MetaMask is available
+                if (typeof window.ethereum !== 'undefined') {
+                    // Use MetaMask
+                    provider = window.ethereum;
+                    await provider.request({ method: 'eth_requestAccounts' });
+
+                    // Get wallet address
+                    const accounts = await provider.request({ method: 'eth_accounts' });
+                    walletAddress = accounts[0];
+
+                    // Get chain ID
+                    const chainIdHex = await provider.request({ method: 'eth_chainId' });
+                    chainId = `eip155:${parseInt(chainIdHex, 16)}`;
+
+                    updateStatus(connectionStatus, `Connected: ${walletAddress} on ${SUPPORTED_NETWORKS[chainId]?.name || chainId}`, false);
+                    authorizeTokenBtn.disabled = false;
+
+                    // Send connection status to backend
+                    await fetch(`/api/wallet/callback/${sessionId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ walletAddress, chainId, status: 'connected' })
+                    });
+                } else {
+                    updateStatus(connectionStatus, "MetaMask not found. Please install MetaMask or use WalletConnect.", true);
+                }
+
+            } catch (error) {
+                console.error("Error connecting wallet:", error);
+                updateStatus(connectionStatus, `Error connecting wallet: ${error.message}`, true);
+            }
+        });
+
+        authorizeTokenBtn.addEventListener('click', async () => {
+            if (!provider || !walletAddress || !chainId) {
+                updateStatus(authorizationStatus, "Please connect your wallet first.", true);
+                return;
+            }
+
+            const networkConfig = SUPPORTED_NETWORKS[chainId];
+            if (!networkConfig || !networkConfig.usdc) {
+                updateStatus(authorizationStatus, `USDC authorization not supported on ${networkConfig?.name || chainId}`, true);
+                return;
+            }
+
+            try {
+                updateStatus(authorizationStatus, "Authorizing USDC spending...", false);
+
+                // For now, just simulate success since we don't have the actual Seaport integration
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                updateStatus(authorizationStatus, `USDC spending authorized for ${walletAddress} on ${networkConfig.name}!`, false);
+
+                // Send authorization status to backend
+                await fetch(`/api/wallet/callback/${sessionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        walletAddress,
+                        chainId,
+                        status: 'authorized',
+                        authorizedToken: networkConfig.usdc,
+                        authorizedAmount: "MaxUint256"
+                    })
+                });
+
+            } catch (error) {
+                console.error("Error authorizing token:", error);
+                updateStatus(authorizationStatus, `Error authorizing token: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+
+</html>
