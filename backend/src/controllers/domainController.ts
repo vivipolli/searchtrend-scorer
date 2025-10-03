@@ -8,22 +8,9 @@ import {
   ApiResponse,
   PaginatedResponse,
   GetDomainsRequest,
-  TrendScore,
-  AiAnalysisInsight,
+  DomainScoreWithAi,
   Domain,
 } from '@/types';
-
-type TrendScoreResponse = TrendScore & {
-  aiAnalysis?: AiAnalysisInsight;
-  onChain?: {
-    owner: string | null;
-    tokenId: string | null;
-    networkId: string;
-    tokenAddress: string | null;
-    mintedAt: Date | null;
-    lastActivityAt: Date | null;
-  };
-};
 
 export const scoreDomain = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { domainName, forceUpdate } = req.body;
@@ -105,33 +92,21 @@ export const getDomainScore = asyncHandler(async (req: Request, res: Response): 
     const aiInsight = await db.getAiInsight(domainName);
     const domainRecord = await db.getDomain(domainName);
 
-    type TrendScoreResponse = TrendScore & {
-      aiAnalysis?: AiAnalysisInsight;
-      onChain?: {
-        owner: string | null;
-        tokenId: string | null;
-        networkId: string;
-        tokenAddress: string | null;
-        mintedAt: Date | null;
-        lastActivityAt: Date | null;
-      };
-    };
-
-    const response: ApiResponse<TrendScoreResponse> = {
+    const response: ApiResponse<DomainScoreWithAi> = {
       success: true,
       data: {
         ...trendScore,
-        aiAnalysis: aiInsight?.analysis ?? undefined,
-        onChain: domainRecord
-          ? {
-              owner: domainRecord.owner ?? null,
-              tokenId: domainRecord.tokenId ?? null,
-              networkId: domainRecord.networkId,
-              tokenAddress: domainRecord.tokenAddress ?? null,
-              mintedAt: domainRecord.mintedAt ?? null,
-              lastActivityAt: domainRecord.lastActivityAt ?? null,
-            }
-          : undefined,
+        ...(aiInsight?.analysis && { aiAnalysis: aiInsight.analysis }),
+        ...(domainRecord && {
+          onChain: {
+            owner: domainRecord.owner ?? null,
+            tokenId: domainRecord.tokenId ?? null,
+            networkId: domainRecord.networkId,
+            tokenAddress: domainRecord.tokenAddress ?? null,
+            mintedAt: domainRecord.mintedAt ?? null,
+            lastActivityAt: domainRecord.lastActivityAt ?? null,
+          }
+        }),
       },
       timestamp: new Date(),
     };
@@ -207,8 +182,6 @@ export const getDomains = asyncHandler(async (req: Request, res: Response): Prom
   const {
     page = 1,
     limit = 20,
-    sortBy = 'score',
-    sortOrder = 'desc',
   } = query;
 
   logger.info('Getting domains with filters', { query });
@@ -225,7 +198,7 @@ export const getDomains = asyncHandler(async (req: Request, res: Response): Prom
     const total = filteredDomains.length;
     const totalPages = Math.ceil(total / limit);
 
-    const response: PaginatedResponse<typeof filteredDomains> = {
+    const response: PaginatedResponse<Domain> = {
       success: true,
       data: filteredDomains,
       message: `Retrieved ${filteredDomains.length} domains`,
@@ -299,8 +272,13 @@ export const getDomainDetails = asyncHandler(async (req: Request, res: Response)
   }
 });
 
-export const searchDomains = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const { query, limit = 20 } = req.query as { query?: string; limit?: number };
+interface SearchDomainsQuery {
+  query?: string;
+  limit?: number | string;
+}
+
+export const searchDomains = asyncHandler(async (req: Request<unknown, unknown, unknown, SearchDomainsQuery>, res: Response): Promise<void> => {
+  const { query, limit = 20 } = req.query;
 
   if (!query || typeof query !== 'string') {
     res.status(400).json({
@@ -316,9 +294,12 @@ export const searchDomains = asyncHandler(async (req: Request, res: Response): P
   try {
     // Search in local database
     const allDomains = await db.getAllDomains(1000, 0); // Get more domains for search
-    const searchResults = allDomains.filter(domain => 
-      domain.name.toLowerCase().includes(query.toLowerCase())
-    ).slice(0, Number(limit));
+    const normalizedLimit = typeof limit === 'string' ? Number(limit) : limit;
+    const safeLimit = Number.isFinite(normalizedLimit) ? normalizedLimit : 20;
+
+    const searchResults = allDomains
+      .filter(domain => domain.name.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, safeLimit);
 
     const response: ApiResponse<typeof searchResults> = {
       success: true,
@@ -334,7 +315,7 @@ export const searchDomains = asyncHandler(async (req: Request, res: Response): P
   }
 });
 
-export const getDomainStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const getDomainStats = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
   logger.info('Getting domain statistics');
 
   try {

@@ -82,8 +82,14 @@ class PollingService {
 
       for (const event of result.events) {
         try {
+          // Skip events with null or undefined uniqueId
+          if (!event.uniqueId) {
+            logger.warn(`Skipping event with null uniqueId for domain: ${event.name}`);
+            continue;
+          }
+
           // Check if event already processed
-      if (await db.isEventProcessed(event.uniqueId)) {
+          if (await db.isEventProcessed(event.uniqueId)) {
             continue;
           }
 

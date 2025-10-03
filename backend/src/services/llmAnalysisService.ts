@@ -47,16 +47,26 @@ class LlmAnalysisService {
         ? 'declining'
         : 'stable';
 
-    return `You are an AI analyst for domain investment insights. Analyze the domain "${domainName}" combining off-chain search trend data and on-chain activity from the DOMA protocol.
+    return `You are a specialized AI analyst for WEB3 DOMAIN VALUATION and INVESTMENT. Your expertise is in analyzing domain names for their potential value in the Web3/crypto ecosystem, specifically for:
 
-Search Trend Metrics (SerpApi Google Trends):
+🎯 **PRIMARY OBJECTIVE**: Help domain investors identify undervalued domains that can be acquired, developed, or flipped for profit in the Web3 space.
+
+📊 **CONTEXT**: You're analyzing "${domainName}" - a domain that could be valuable for:
+- Web3 projects, DAOs, DeFi protocols
+- NFT collections, crypto brands
+- Blockchain startups, metaverse projects
+- Domain flipping and resale opportunities
+
+🔍 **ANALYSIS FOCUS**: Determine if this domain has investment potential based on:
+
+**Search Trend Metrics (Google Trends Data):**
 - Trend Score: ${trendScore.breakdown.trendDirection.toFixed(2)} / 100 (${trendDirectionLabel})
 - Search Volume Score: ${trendScore.breakdown.searchVolume.toFixed(2)} / 100
 - Trend Strength: ${(searchMetrics.trend * 100).toFixed(2)}%
 - Related Queries Count: ${searchMetrics.relatedQueries.length}
 - Geographic Diversity: ${Object.keys(searchMetrics.geographicData).length} regions
 
-On-chain Metrics (DOMA Protocol):
+**On-chain Metrics (DOMA Protocol Activity):**
 - Activity Score: ${trendScore.breakdown.onChainActivity.toFixed(2)} / 100
 - Transactions: ${onChainMetrics.transactionCount}
 - Unique Owners: ${onChainMetrics.uniqueOwners}
@@ -64,19 +74,19 @@ On-chain Metrics (DOMA Protocol):
 - Liquidity Score: ${onChainMetrics.liquidity.toFixed(2)}
 - Rarity Score: ${trendScore.breakdown.rarity.toFixed(2)} / 100
 
-Overall Trend Score: ${trendScore.score.toFixed(2)} / 100
-Confidence Level: ${(trendScore.metadata.confidence * 100).toFixed(0)}%
+**Overall Investment Score: ${trendScore.score.toFixed(2)} / 100**
+**Confidence Level: ${(trendScore.metadata.confidence * 100).toFixed(0)}%**
 
 IMPORTANT: You must respond with valid JSON only. Do not include any text before or after the JSON.
 
 Provide a JSON response with the following structure:
 {
-  "summary": "high-level narrative on the domain opportunity (max 3 sentences)",
+  "summary": "Investment opportunity analysis for this Web3 domain (max 3 sentences)",
   "sentiment": "positive" | "neutral" | "negative",
   "confidence": 0.0-1.0,
-  "keyHighlights": ["bullet point 1", "bullet point 2", "bullet point 3"],
-  "recommendations": ["action 1", "action 2", "action 3"],
-  "riskFactors": ["risk 1", "risk 2", "risk 3"],
+  "keyHighlights": ["Why this domain could be valuable", "Market trends supporting value", "Specific use cases"],
+  "recommendations": ["Buy now", "Wait for better price", "Develop into project", "Hold for appreciation"],
+  "riskFactors": ["Market risks", "Competition risks", "Technical risks"],
   "dataPointsUsed": {
     "serpApiTrendStrength": 0.0,
     "serpApiVolume": 0.0,
@@ -85,7 +95,7 @@ Provide a JSON response with the following structure:
   }
 }
 
-The tone should be analytical, concise, and helpful for investors evaluating the domain.`;
+Focus on Web3 domain investment potential, market timing, and profit opportunities.`;
   }
 
   public async generateAnalysis(params: GenerateAnalysisParams): Promise<AiAnalysisInsight | null> {

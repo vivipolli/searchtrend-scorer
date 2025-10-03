@@ -3,7 +3,7 @@ import { asyncHandler } from '@/middleware/errorHandler';
 import { domaService } from '@/services/domaService';
 import { db } from '@/utils/database';
 import logger from '@/utils/logger';
-import { ApiResponse, PaginatedResponse, DatabaseEvent } from '@/types';
+import { ApiResponse, DatabaseEvent } from '@/types';
 
 export const pollEvents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit = 25, finalizedOnly = true } = req.query;
@@ -17,6 +17,12 @@ export const pollEvents = asyncHandler(async (req: Request, res: Response): Prom
     // Process and store events
     const processedEvents: DatabaseEvent[] = [];
     for (const event of result.events) {
+      // Skip events with null or undefined uniqueId
+      if (!event.uniqueId) {
+        logger.warn(`Skipping event with null uniqueId for domain: ${event.name}`);
+        continue;
+      }
+
       // Check if event already processed
       if (await db.isEventProcessed(event.uniqueId)) {
         continue;
@@ -52,23 +58,27 @@ export const pollEvents = asyncHandler(async (req: Request, res: Response): Prom
       }
     }
 
+    const totalEvents = result.events.length;
+    const lastId = result.lastId ?? null;
+
     // Acknowledge processed events
-    if (result.lastId) {
-      await domaService.acknowledgeEvents(result.lastId);
+    if (lastId) {
+      await domaService.acknowledgeEvents(lastId);
     }
+    const hasMoreEvents = Boolean(result.hasMoreEvents);
 
     const response: ApiResponse<{
-      processedEvents: typeof processedEvents;
-      totalEvents: result.events.length;
-      lastId: result.lastId;
-      hasMoreEvents: result.hasMoreEvents;
+      processedEvents: DatabaseEvent[];
+      totalEvents: number;
+      lastId: number | null;
+      hasMoreEvents: boolean;
     }> = {
       success: true,
       data: {
         processedEvents,
-        totalEvents: result.events.length,
-        lastId: result.lastId,
-        hasMoreEvents: result.hasMoreEvents,
+        totalEvents,
+        lastId,
+        hasMoreEvents,
       },
       message: `Processed ${processedEvents.length} new events`,
       timestamp: new Date(),
@@ -135,7 +145,7 @@ export const getEventsByDomain = asyncHandler(async (req: Request, res: Response
   }
 });
 
-export const getEventStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const getEventStats = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
   logger.info('Getting event statistics');
 
   try {
@@ -163,7 +173,7 @@ export const getEventStats = asyncHandler(async (req: Request, res: Response): P
   }
 });
 
-export const healthCheck = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const healthCheck = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
   logger.info('Health check requested');
 
   try {

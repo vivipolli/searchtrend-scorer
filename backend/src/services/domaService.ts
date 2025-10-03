@@ -146,11 +146,11 @@ class DomaService {
       const variables = {
         skip: params.skip || 0,
         take: params.take || 100,
-        ownedBy: params.ownedBy,
+        ownedBy: params.ownedBy || undefined,
         claimStatus: params.claimStatus || 'ALL',
-        name: params.name,
-        networkIds: params.networkIds,
-        tlds: params.tlds,
+        name: params.name || undefined,
+        networkIds: params.networkIds || undefined,
+        tlds: params.tlds || undefined,
       };
 
       logger.debug('Querying DOMA GraphQL API for domains', { variables });
@@ -198,6 +198,15 @@ class DomaService {
       };
     } catch (error) {
       logger.error('Failed to query DOMA GraphQL API:', error);
+      
+      // Check if it's an Axios error with response data
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as any;
+        if (axiosError.response?.data) {
+          logger.error('GraphQL API error response:', axiosError.response.data);
+        }
+      }
+      
       throw new Error(`DOMA GraphQL query failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -207,12 +216,18 @@ class DomaService {
    */
   async getDomainByName(domainName: string): Promise<Domain | null> {
     try {
+      // Validate domain name format
+      if (!domainName || typeof domainName !== 'string' || domainName.trim() === '') {
+        logger.warn(`Invalid domain name provided: ${domainName}`);
+        return null;
+      }
+
       const result = await this.queryDomains({
-        name: domainName,
+        name: domainName.trim(),
         take: 1,
       });
 
-      return result.data.length > 0 ? result.data[0] : null;
+      return result.data.length > 0 ? result.data[0] ?? null : null;
     } catch (error) {
       logger.error(`Failed to get domain ${domainName}:`, error);
       return null;
@@ -296,7 +311,7 @@ class DomaService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const result = await this.queryDomains({ take: 1 });
+      await this.queryDomains({ take: 1 });
       return true;
     } catch (error) {
       logger.error('DOMA API health check failed:', error);
