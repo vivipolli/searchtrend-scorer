@@ -25,9 +25,15 @@ class App {
 
     // CORS configuration
     this.app.use(cors({
-      origin: process.env['CORS_ORIGIN'] || '*',
+      origin: [
+        'https://searchtrend-scorer.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        process.env['CORS_ORIGIN'] || '*'
+      ].filter(Boolean),
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Api-Key'],
+      credentials: true,
     }));
 
     // Body parsing middleware (before compression)
