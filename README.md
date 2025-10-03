@@ -101,7 +101,7 @@ yarn dev
 - View AI insights and recommendations
 ### Demo
 
-![Demo screenshot](./public/demo.png)
+![Demo screenshot](./frontend/public/demo.png)
 
 
 ### 4. API Endpoints
