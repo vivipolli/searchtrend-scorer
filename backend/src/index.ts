@@ -20,10 +20,7 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    // Security middleware
-    this.app.use(helmet());
-
-    // CORS configuration
+    // CORS configuration - MUST be first
     this.app.use(cors({
       origin: [
         'https://searchtrend-scorer.vercel.app',
@@ -34,17 +31,38 @@ class App {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'Api-Key', 'X-Requested-With'],
       credentials: true,
-      optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+      optionsSuccessStatus: 200,
     }));
 
-    // Handle preflight requests
-    this.app.options('*', (req, res) => {
-      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    // Simple CORS middleware
+    this.app.use((req, res, next) => {
+      const allowedOrigins = [
+        'https://searchtrend-scorer.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5173'
+      ];
+      
+      const origin = req.headers.origin;
+      if (allowedOrigins.includes(origin as string)) {
+        res.header('Access-Control-Allow-Origin', origin);
+      } else {
+        res.header('Access-Control-Allow-Origin', '*');
+      }
+      
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Api-Key, X-Requested-With');
       res.header('Access-Control-Allow-Credentials', 'true');
-      res.sendStatus(200);
+      
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+        return;
+      }
+      
+      next();
     });
+
+    // Security middleware
+    this.app.use(helmet());
 
     // Body parsing middleware (before compression)
     this.app.use(express.json({ limit: '10mb' }));
