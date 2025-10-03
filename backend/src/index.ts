@@ -94,15 +94,36 @@ class App {
   }
 
   private initializeRoutes(): void {
-    // Health check endpoint
+    // Simple health check endpoint
     this.app.get('/health', (_req, res) => {
+      try {
+        res.json({
+          success: true,
+          message: 'SearchTrend Scorer API is running',
+          timestamp: new Date(),
+          uptime: process.uptime(),
+          environment: config.nodeEnv,
+          version: '1.0.0',
+        });
+      } catch (error) {
+        console.error('Health check error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          timestamp: new Date(),
+        });
+      }
+    });
+
+    // Debug endpoint
+    this.app.get('/debug', (_req, res) => {
       res.json({
         success: true,
-        message: 'SearchTrend Scorer API is running',
+        message: 'Debug endpoint working',
         timestamp: new Date(),
-        uptime: process.uptime(),
-        environment: config.nodeEnv,
-        version: '1.0.0',
+        environment: process.env['NODE_ENV'],
+        port: process.env['PORT'],
+        corsOrigin: process.env['CORS_ORIGIN'],
       });
     });
 
@@ -121,20 +142,25 @@ class App {
   public listen(): void {
     const port = config.port;
     
-    this.app.listen(port, () => {
-      logger.info(`🚀 SearchTrend Scorer API started successfully`, {
-        port,
-        environment: config.nodeEnv,
-        version: '1.0.0',
+    try {
+      this.app.listen(port, () => {
+        logger.info(`🚀 SearchTrend Scorer API started successfully`, {
+          port,
+          environment: config.nodeEnv,
+          version: '1.0.0',
+        });
+
+        // Start polling service
+        pollingService.start();
+
+        // Graceful shutdown handling
+        process.on('SIGTERM', this.gracefulShutdown);
+        process.on('SIGINT', this.gracefulShutdown);
       });
-
-      // Start polling service
-      pollingService.start();
-
-      // Graceful shutdown handling
-      process.on('SIGTERM', this.gracefulShutdown);
-      process.on('SIGINT', this.gracefulShutdown);
-    });
+    } catch (error) {
+      logger.error('Failed to start server:', error);
+      process.exit(1);
+    }
   }
 
   private gracefulShutdown = (signal: string): void => {
