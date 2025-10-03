@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
+// Debug log to check the BASE_URL
+console.log('🔍 API Base URL:', BASE_URL);
+
 export const api = axios.create({
   baseURL: BASE_URL,
   headers: {
@@ -9,6 +12,18 @@ export const api = axios.create({
   },
   timeout: 10000,
 });
+
+// Debug interceptor to log requests
+api.interceptors.request.use(
+  (config) => {
+    console.log('🚀 Making request to:', config.baseURL + config.url);
+    return config;
+  },
+  (error) => {
+    console.error('❌ Request error:', error);
+    return Promise.reject(error);
+  }
+);
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -90,7 +105,9 @@ export interface TrendingResponse {
 }
 
 export const fetchHealth = async () => {
-  const response = await api.get('/api/v1/events/health');
+  const response = await api.get('/health', {
+    params: { t: Date.now() } // Force fresh request
+  });
   return response.data;
 };
 
