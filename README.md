@@ -99,6 +99,10 @@ yarn dev
 - Enter a domain (e.g., "crypto.eth")
 - Click "Analyze" to see the score breakdown
 - View AI insights and recommendations
+### Demo
+
+![Demo screenshot](./public/demo.png)
+
 
 ### 4. API Endpoints
 - `GET /health` - Health check

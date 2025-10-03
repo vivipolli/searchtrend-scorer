@@ -82,7 +82,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
       <div>
         <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Demo</p>
         <h2 className="mt-1 text-xl font-semibold text-slate-100">
-          Calculate the TrendScore of a domain
+          Calculate the trend score of a domain
         </h2>
         <p className="mt-2 text-sm text-slate-400">
           Executes combined analysis using DOMA Poll API, on-chain metrics and Google
@@ -114,7 +114,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
         disabled={loading}
         className="w-full rounded-xl bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl hover:shadow-blue-500/40 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? 'Calculating...' : 'Calculate TrendScore'}
+        {loading ? 'Calculating...' : 'Calculate trend score'}
       </button>
     </form>
   );
