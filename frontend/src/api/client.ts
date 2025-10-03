@@ -90,7 +90,7 @@ export interface TrendingResponse {
 }
 
 export const fetchHealth = async () => {
-  const response = await api.get('/health');
+  const response = await api.get('/api/v1/events/health');
   return response.data;
 };
 
