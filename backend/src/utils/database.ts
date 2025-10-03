@@ -1,5 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 import { config } from '@/config';
 import logger from './logger';
 import { Domain, DatabaseEvent, DatabaseTrendScore, AiInsightsCacheEntry } from '@/types';
@@ -9,6 +11,13 @@ class DatabaseManager {
   private initialized: Promise<void>;
 
   constructor() {
+    // Ensure database directory exists
+    const dbDir = path.dirname(config.database.path);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+      logger.info(`Created database directory: ${dbDir}`);
+    }
+    
     this.db = new sqlite3.Database(config.database.path);
     this.initialized = this.initializeTables();
   }
