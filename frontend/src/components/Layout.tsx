@@ -9,13 +9,29 @@ export const Layout = ({ children }: LayoutProps) => {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-blue-400">SearchTrend Scorer</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-100 sm:text-3xl">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/logo.png" 
+                alt="Trendom Logo" 
+                className="h-12 w-12 rounded-lg"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-slate-100 sm:text-3xl">
+                  Trendom
+                </h1>
+                <p className="text-sm text-blue-400">
+                  AI-Powered Domain Valuation
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 sm:mt-0">
+            <p className="text-sm text-slate-400">
               DOMA + Google Trends Analytics Dashboard
-            </h1>
-            <p className="mt-1 text-slate-400">
-              Insights about real domain demand connecting Web2 and Web3 signals.
+            </p>
+            <p className="text-xs text-slate-500">
+              Insights about real domain demand connecting Web2 and Web3 signals
             </p>
           </div>
           <a
@@ -31,7 +47,7 @@ export const Layout = ({ children }: LayoutProps) => {
       </main>
       <footer className="border-t border-slate-800 bg-slate-900/40">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <span>© {new Date().getFullYear()} SearchTrend Scorer</span>
+          <span>© {new Date().getFullYear()} Trendom</span>
           <span>DOMA Hackathon • Track 4</span>
         </div>
       </footer>
