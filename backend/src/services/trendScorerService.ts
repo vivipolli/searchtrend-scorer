@@ -14,7 +14,7 @@ import {
   calculateLiquidity,
   normalizeSearchVolume,
   calculateTrendDirection,
-  calculateOnChainActivity,
+  calculateOnChainActivityWithStats,
   calculateWeightedScore,
   calculateConfidence,
   DomainRarityContext,
@@ -53,7 +53,10 @@ class TrendScorerService {
       // Calculate individual components
       const searchVolume = normalizeSearchVolume(searchMetrics.volume);
       const trendDirection = calculateTrendDirection(searchMetrics.trend);
-      const onChainActivity = calculateOnChainActivity(onChainMetrics);
+      
+      // Get database statistics for comparative scoring
+      const stats = await db.getDomainActivityStats();
+      const onChainActivity = await calculateOnChainActivityWithStats(onChainMetrics, stats);
       const rarity = onChainMetrics.rarity;
 
       // Calculate weighted final score (0-100)
@@ -173,6 +176,14 @@ class TrendScorerService {
         logger.info(`Domain ${domainName} not found in database, fetching from DOMA API`);
         try {
           const domaDomain = await domaService.getDomainByName(domainName);
+          logger.info(`DOMA API response for ${domainName}:`, {
+            found: !!domaDomain,
+            name: domaDomain?.name,
+            owner: domaDomain?.owner,
+            tokenId: domaDomain?.tokenId,
+            claimStatus: domaDomain?.claimStatus
+          });
+          
           if (domaDomain) {
             // Store domain info in database for future use
             await db.insertOrUpdateDomain({
@@ -186,16 +197,29 @@ class TrendScorerService {
               lastActivityAt: domaDomain.lastActivityAt ?? null,
             });
             domain = domaDomain;
+            logger.info(`Domain ${domainName} successfully fetched and stored from DOMA API`);
+          } else {
+            logger.warn(`Domain ${domainName} not found in DOMA API`);
           }
         } catch (domaError) {
-          logger.warn(`Failed to fetch domain ${domainName} from DOMA API:`, domaError);
+          logger.error(`Failed to fetch domain ${domainName} from DOMA API:`, domaError);
         }
+      } else {
+        logger.info(`Domain ${domainName} found in local database`);
       }
 
       const transactionCount = events.length;
       const uniqueOwners = new Set(events.map((event) => event.txHash ?? event.networkId ?? event.domainName)).size;
       const prices = events.map((event) => event.price).filter((price): price is number => price !== null);
       const averagePrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+
+      // If no events but we have domain data from DOMA API, give some activity score
+      let adjustedTransactionCount = transactionCount;
+      if (transactionCount === 0 && domain) {
+        // Give minimal activity score for domains that exist on-chain
+        adjustedTransactionCount = 1;
+        logger.info(`No local events for ${domainName}, but domain exists on-chain. Using minimal activity score.`);
+      }
 
       const liquidity = calculateLiquidity(events, domain?.lastActivityAt ?? null);
 
@@ -212,7 +236,7 @@ class TrendScorerService {
       logger.info(`On-chain metrics for ${domainName}: ${transactionCount} transactions, ${uniqueOwners} unique owners, ${events.length > 0 ? 'found' : 'no'} events`);
 
       return {
-        transactionCount,
+        transactionCount: adjustedTransactionCount,
         uniqueOwners,
         averagePrice,
         liquidity,

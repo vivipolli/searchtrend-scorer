@@ -318,7 +318,8 @@ export function calculateLiquidity(events: any[], lastActivityAt: Date | null = 
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const recentEvents = events.filter((event) => new Date(event.createdAt) > thirtyDaysAgo);
-  let liquidity = Math.min(100, (recentEvents.length / 30) * 100);
+  // More conservative liquidity calculation
+  let liquidity = Math.min(100, (recentEvents.length / 10) * 50); // Reduced multiplier
 
   if (lastActivityAt) {
     const daysSinceLastActivity = (Date.now() - lastActivityAt.getTime()) / (1000 * 60 * 60 * 24);
@@ -350,19 +351,85 @@ export function calculateTrendDirection(trend: number): number {
 }
 
 /**
- * Calculate on-chain activity score
+ * Calculate on-chain activity score based on real database statistics
+ */
+export async function calculateOnChainActivityWithStats(
+  metrics: {
+    transactionCount: number;
+    liquidity: number;
+    averagePrice: number;
+  },
+  stats: {
+    avgTransactionCount: number;
+    maxTransactionCount: number;
+    avgPrice: number;
+    maxPrice: number;
+    totalDomains: number;
+  }
+): Promise<number> {
+  // Base scores for domains with no activity
+  if (metrics.transactionCount === 0) {
+    return 0;
+  }
+
+  // If no historical data, use conservative fallback
+  if (stats.totalDomains === 0) {
+    return Math.min(50, metrics.transactionCount * 10);
+  }
+
+  // Transaction count scoring based on percentile
+  // Above average = 50-75, above 2x average = 75-90, above 3x average = 90-100
+  let transactionScore = 0;
+  if (metrics.transactionCount <= stats.avgTransactionCount) {
+    transactionScore = (metrics.transactionCount / stats.avgTransactionCount) * 50;
+  } else if (metrics.transactionCount <= stats.avgTransactionCount * 2) {
+    transactionScore = 50 + ((metrics.transactionCount - stats.avgTransactionCount) / stats.avgTransactionCount) * 25;
+  } else {
+    transactionScore = 75 + Math.min(25, ((metrics.transactionCount - stats.avgTransactionCount * 2) / stats.avgTransactionCount) * 25);
+  }
+
+  // Price scoring based on percentile
+  let priceScore = 0;
+  if (metrics.averagePrice > 0) {
+    if (metrics.averagePrice <= stats.avgPrice) {
+      priceScore = (metrics.averagePrice / stats.avgPrice) * 30;
+    } else if (metrics.averagePrice <= stats.maxPrice) {
+      priceScore = 30 + ((metrics.averagePrice - stats.avgPrice) / (stats.maxPrice - stats.avgPrice)) * 40;
+    } else {
+      priceScore = 70 + Math.min(30, Math.log10(metrics.averagePrice / stats.maxPrice) * 30);
+    }
+  }
+
+  // Liquidity scoring (already normalized 0-100)
+  const liquidityScore = metrics.liquidity;
+
+  // Weighted combination with realistic weights
+  const score = (transactionScore * 0.4 + liquidityScore * 0.4 + priceScore * 0.2);
+  
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/**
+ * Calculate on-chain activity score (fallback without stats)
  */
 export function calculateOnChainActivity(metrics: {
   transactionCount: number;
   liquidity: number;
   averagePrice: number;
 }): number {
-  // Weighted combination of transaction count, liquidity, and price
+  // Base scores for domains with no activity
+  if (metrics.transactionCount === 0) {
+    return 0;
+  }
+
+  // Conservative fallback scoring
   const transactionScore = Math.min(100, metrics.transactionCount * 10);
   const liquidityScore = metrics.liquidity;
-  const priceScore = Math.min(100, metrics.averagePrice * 10);
+  const priceScore = Math.min(100, Math.log10(metrics.averagePrice + 1) * 20);
+
+  const score = (transactionScore * 0.4 + liquidityScore * 0.4 + priceScore * 0.2);
   
-  return (transactionScore * 0.4 + liquidityScore * 0.4 + priceScore * 0.2);
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 /**

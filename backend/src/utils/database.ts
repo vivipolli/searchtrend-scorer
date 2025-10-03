@@ -194,6 +194,44 @@ class DatabaseManager {
     );
   }
 
+  async getDomainActivityStats(): Promise<{
+    avgTransactionCount: number;
+    maxTransactionCount: number;
+    avgPrice: number;
+    maxPrice: number;
+    totalDomains: number;
+  }> {
+    await this.initialized;
+    const all = (this as any).all;
+    
+    // Get statistics from events table
+    const stats = await all(`
+      SELECT 
+        AVG(transaction_count) as avg_transaction_count,
+        MAX(transaction_count) as max_transaction_count,
+        AVG(price) as avg_price,
+        MAX(price) as max_price,
+        COUNT(DISTINCT domain_name) as total_domains
+      FROM (
+        SELECT 
+          domain_name,
+          COUNT(*) as transaction_count,
+          AVG(price) as price
+        FROM events 
+        WHERE price IS NOT NULL
+        GROUP BY domain_name
+      ) domain_stats
+    `);
+    
+    return {
+      avgTransactionCount: stats[0]?.avg_transaction_count || 0,
+      maxTransactionCount: stats[0]?.max_transaction_count || 0,
+      avgPrice: stats[0]?.avg_price || 0,
+      maxPrice: stats[0]?.max_price || 0,
+      totalDomains: stats[0]?.total_domains || 0,
+    };
+  }
+
   async isEventProcessed(uniqueId: string): Promise<boolean> {
     await this.initialized;
     const get = (this as any).get;

@@ -8,6 +8,7 @@ import {
   searchDomains,
   getDomainStats,
   getDomainAiAnalysis,
+  testDomaApi,
 } from '@/controllers/domainController';
 import { validateRequest, validateQuery, validateParams, schemas } from '@/middleware/validation';
 
@@ -36,5 +37,8 @@ router.get('/', validateQuery(schemas.getDomains), getDomains);
 
 // Get domain statistics
 router.get('/stats/overview', getDomainStats);
+
+// Test DOMA API (debug endpoint)
+router.get('/test-doma/:domainName', testDomaApi);
 
 export default router;

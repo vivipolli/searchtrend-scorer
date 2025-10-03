@@ -157,7 +157,10 @@ class DomaService {
         tlds: params.tlds || undefined,
       };
 
-      logger.debug('Querying DOMA GraphQL API for domains', { variables });
+      logger.info('Querying DOMA GraphQL API for domains', { 
+        domainName: variables.name,
+        variables 
+      });
 
       const response: AxiosResponse = await axios.post(url, {
         query,
@@ -168,6 +171,13 @@ class DomaService {
           'Content-Type': 'application/json',
         },
         timeout: 30000,
+      });
+
+      logger.info('DOMA GraphQL API response', {
+        status: response.status,
+        hasData: !!response.data?.data,
+        hasNames: !!response.data?.data?.names,
+        itemsCount: response.data?.data?.names?.items?.length || 0
       });
 
       const result = response.data?.data?.names;

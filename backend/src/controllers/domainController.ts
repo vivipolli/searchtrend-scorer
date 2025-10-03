@@ -334,3 +334,28 @@ export const getDomainStats = asyncHandler(async (_req: Request, res: Response):
     throw error;
   }
 });
+
+export const testDomaApi = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { domainName } = req.params;
+  
+  if (!domainName) {
+    res.status(400).json({
+      success: false,
+      error: { code: 'MISSING_DOMAIN_NAME', message: 'Domain name is required' }
+    });
+    return;
+  }
+
+  logger.info(`Testing DOMA API for domain: ${domainName}`);
+
+  const domaDomain = await domaService.getDomainByName(domainName);
+  
+  res.json({
+    success: true,
+    data: {
+      domainName,
+      found: !!domaDomain,
+      domain: domaDomain
+    }
+  });
+});
