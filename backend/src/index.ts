@@ -32,9 +32,19 @@ class App {
         process.env['CORS_ORIGIN'] || '*'
       ].filter(Boolean),
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Api-Key'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Api-Key', 'X-Requested-With'],
       credentials: true,
+      optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
     }));
+
+    // Handle preflight requests
+    this.app.options('*', (req, res) => {
+      res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Api-Key, X-Requested-With');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.sendStatus(200);
+    });
 
     // Body parsing middleware (before compression)
     this.app.use(express.json({ limit: '10mb' }));

@@ -16,7 +16,6 @@ export const api = axios.create({
 // Debug interceptor to log requests
 api.interceptors.request.use(
   (config) => {
-    console.log('🚀 Making request to:', config.baseURL + config.url);
     return config;
   },
   (error) => {
