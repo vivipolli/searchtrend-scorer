@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
@@ -20,41 +19,36 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    // CORS configuration - MUST be first
-    this.app.use(cors({
-      origin: [
-        'https://searchtrend-scorer.vercel.app',
-        'http://localhost:3000',
-        'http://localhost:5173',
-        process.env['CORS_ORIGIN'] || '*'
-      ].filter(Boolean),
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Api-Key', 'X-Requested-With'],
-      credentials: true,
-      optionsSuccessStatus: 200,
-    }));
-
-    // Simple CORS middleware
+    // Simple CORS middleware - MUST be first
     this.app.use((req, res, next) => {
-      const allowedOrigins = [
-        'https://searchtrend-scorer.vercel.app',
-        'http://localhost:3000',
-        'http://localhost:5173'
-      ];
+      console.log('🔍 CORS Middleware - Origin:', req.headers.origin);
+      console.log('🔍 CORS Middleware - Method:', req.method);
+      console.log('🔍 CORS Middleware - URL:', req.url);
       
       const origin = req.headers.origin;
-      if (allowedOrigins.includes(origin as string)) {
+      
+      // Allow specific origins
+      if (origin === 'https://searchtrend-scorer.vercel.app' || 
+          origin === 'http://localhost:3000' || 
+          origin === 'http://localhost:5173') {
         res.header('Access-Control-Allow-Origin', origin);
+        console.log('✅ CORS - Allowed origin:', origin);
       } else {
         res.header('Access-Control-Allow-Origin', '*');
+        console.log('✅ CORS - Wildcard origin');
       }
       
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Api-Key, X-Requested-With');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Api-Key, X-Requested-With, Accept, Origin');
       res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Max-Age', '86400'); // 24 hours
       
+      console.log('✅ CORS Headers set');
+      
+      // Handle preflight requests
       if (req.method === 'OPTIONS') {
-        res.sendStatus(200);
+        console.log('✅ CORS - Handling OPTIONS preflight');
+        res.status(200).end();
         return;
       }
       
@@ -95,18 +89,24 @@ class App {
 
   private initializeRoutes(): void {
     // Simple health check endpoint
-    this.app.get('/health', (_req, res) => {
+    this.app.get('/health', (req, res) => {
+      console.log('🔍 Health endpoint called - Origin:', req.headers.origin);
+      console.log('🔍 Health endpoint - Headers:', req.headers);
+      
       try {
-        res.json({
+        const response = {
           success: true,
           message: 'SearchTrend Scorer API is running',
           timestamp: new Date(),
           uptime: process.uptime(),
-          environment: config.nodeEnv,
+          environment: process.env['NODE_ENV'] || 'development',
           version: '1.0.0',
-        });
+        };
+        
+        console.log('✅ Health response:', response);
+        res.json(response);
       } catch (error) {
-        console.error('Health check error:', error);
+        console.error('❌ Health check error:', error);
         res.status(500).json({
           success: false,
           error: 'Internal server error',
@@ -127,6 +127,16 @@ class App {
       });
     });
 
+    // CORS test endpoint
+    this.app.get('/cors-test', (req, res) => {
+      res.json({
+        success: true,
+        message: 'CORS test successful',
+        origin: req.headers.origin,
+        timestamp: new Date(),
+      });
+    });
+
     // API routes
     this.app.use('/', routes);
   }
@@ -142,13 +152,14 @@ class App {
   public listen(): void {
     const port = config.port;
     
+    console.log('🚀 Starting server on port:', port);
+    console.log('🚀 Environment:', config.nodeEnv);
+    
     try {
       this.app.listen(port, () => {
-        logger.info(`🚀 SearchTrend Scorer API started successfully`, {
-          port,
-          environment: config.nodeEnv,
-          version: '1.0.0',
-        });
+        console.log(`🚀 SearchTrend Scorer API started successfully on port ${port}`);
+        console.log(`🚀 Environment: ${config.nodeEnv}`);
+        console.log(`🚀 Version: 1.0.0`);
 
         // Start polling service
         pollingService.start();
@@ -158,7 +169,7 @@ class App {
         process.on('SIGINT', this.gracefulShutdown);
       });
     } catch (error) {
-      logger.error('Failed to start server:', error);
+      console.error('❌ Failed to start server:', error);
       process.exit(1);
     }
   }
@@ -178,7 +189,9 @@ class App {
 }
 
 // Create and start the application
+console.log('🚀 Creating App instance...');
 const app = new App();
+console.log('🚀 App instance created, starting server...');
 app.listen();
 
 export default app;
