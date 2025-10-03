@@ -1,5 +1,10 @@
 # Trendom — AI-Powered Domain Valuation
 
+[![Google Trends](https://img.shields.io/badge/Google-Trends-blue?logo=google&logoColor=white)](https://trends.google.com)
+[![DOMA Protocol](https://img.shields.io/badge/DOMA-Protocol-purple?logo=ethereum&logoColor=white)](https://doma.xyz)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green?logo=openai&logoColor=white)](https://openai.com)
+[![Blockchain](https://img.shields.io/badge/Blockchain-Web3-orange?logo=ethereum&logoColor=white)](https://ethereum.org)
+
 **Trendom** is an AI-assisted scoring engine that unifies Google Trends search data with DOMA Protocol blockchain activity to generate comprehensive domain valuations with actionable insights.
 
 ## 🎯 What We Solve
