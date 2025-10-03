@@ -171,6 +171,18 @@ class DatabaseManager {
     );
   }
 
+  async getEventsByKeyword(keyword: string, limit: number = 100): Promise<DatabaseEvent[]> {
+    await this.initialized;
+    const all = (this as any).all;
+    return await all(
+      `SELECT * FROM events 
+       WHERE domain_name LIKE ? 
+       ORDER BY created_at DESC 
+       LIMIT ?`,
+      `%${keyword}%`, limit
+    );
+  }
+
   async getRecentEvents(limit: number = 50): Promise<DatabaseEvent[]> {
     await this.initialized;
     const all = (this as any).all;

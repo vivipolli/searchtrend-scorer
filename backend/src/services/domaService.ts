@@ -5,16 +5,18 @@ import { DomaEvent, Domain } from '@/types';
 
 interface DomaApiDomain {
   name: string;
-  token?: {
+  tokens?: {
     tokenId?: string;
-    address?: string;
     networkId?: string;
-    owner?: {
-      address: string;
-    } | null;
+    ownerAddress?: string;
     createdAt?: string;
-    lastActivityAt?: string;
-  } | null;
+    expiresAt?: string;
+    tokenAddress?: string;
+    chain?: {
+      name: string;
+      networkId: string;
+    } | null;
+  }[] | null;
 }
 
 class DomaService {
@@ -127,14 +129,16 @@ class DomaService {
           ) {
             items {
               name
-              token {
+              tokens {
                 tokenId
-                address
                 networkId
+                ownerAddress
                 createdAt
-                lastActivityAt
-                owner {
-                  address
+                expiresAt
+                tokenAddress
+                chain {
+                  name
+                  networkId
                 }
               }
             }
@@ -176,19 +180,20 @@ class DomaService {
       // Map API response to Domain objects
       const domains: Domain[] = result.items.map((item: DomaApiDomain) => {
         const now = new Date();
-        const token = item.token;
+        // Use the first token if multiple tokens exist
+        const token = item.tokens && item.tokens.length > 0 ? item.tokens[0] : null;
         return {
           id: item.name,
           name: item.name,
           tokenId: token?.tokenId ?? null,
-          owner: token?.owner?.address ?? null,
-          claimStatus: token?.owner?.address ? 'CLAIMED' : 'UNCLAIMED',
+          owner: token?.ownerAddress ?? null,
+          claimStatus: token?.ownerAddress ? 'CLAIMED' : 'UNCLAIMED',
           networkId: token?.networkId ?? 'unknown',
-          tokenAddress: token?.address ?? null,
+          tokenAddress: token?.tokenAddress ?? null,
           createdAt: token?.createdAt ? new Date(token.createdAt) : now,
-          updatedAt: token?.lastActivityAt ? new Date(token.lastActivityAt) : now,
+          updatedAt: token?.expiresAt ? new Date(token.expiresAt) : now,
           mintedAt: token?.createdAt ? new Date(token.createdAt) : null,
-          lastActivityAt: token?.lastActivityAt ? new Date(token.lastActivityAt) : null,
+          lastActivityAt: token?.expiresAt ? new Date(token.expiresAt) : null,
         };
       });
 

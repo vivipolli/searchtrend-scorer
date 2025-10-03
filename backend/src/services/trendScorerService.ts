@@ -4,6 +4,7 @@ import { TrendScore, SearchMetrics, OnChainMetrics, AiAnalysisInsight, DomainSco
 import { db } from '@/utils/database';
 import serpApiService from './serpApiService';
 import { llmAnalysisService } from './llmAnalysisService';
+import { domaService } from './domaService';
 import {
   analyzeSearchVolume,
   analyzeTrendDirection,
@@ -152,8 +153,44 @@ class TrendScorerService {
    */
   private async getOnChainMetrics(domainName: string): Promise<OnChainMetrics> {
     try {
-      const events = await db.getEventsByDomain(domainName);
-      const domain = await db.getDomain(domainName);
+      // Extract keyword from domain name (e.g., "crypto.eth" -> "crypto")
+      const keyword = domainName.split('.')[0]?.toLowerCase() || domainName.toLowerCase();
+      
+      // Get events by exact domain name first
+      let events = await db.getEventsByDomain(domainName);
+      
+      // If no events found for exact domain, search by keyword
+      if (events.length === 0) {
+        logger.info(`No events found for exact domain ${domainName}, searching by keyword: ${keyword}`);
+        events = await db.getEventsByKeyword(keyword);
+      }
+      
+      // Try to get domain info from database
+      let domain = await db.getDomain(domainName);
+      
+      // If domain not found in database, try to fetch from DOMA API
+      if (!domain) {
+        logger.info(`Domain ${domainName} not found in database, fetching from DOMA API`);
+        try {
+          const domaDomain = await domaService.getDomainByName(domainName);
+          if (domaDomain) {
+            // Store domain info in database for future use
+            await db.insertOrUpdateDomain({
+              name: domaDomain.name,
+              tokenId: domaDomain.tokenId ?? null,
+              owner: domaDomain.owner ?? null,
+              claimStatus: domaDomain.claimStatus,
+              networkId: domaDomain.networkId,
+              tokenAddress: domaDomain.tokenAddress ?? null,
+              mintedAt: domaDomain.mintedAt ?? null,
+              lastActivityAt: domaDomain.lastActivityAt ?? null,
+            });
+            domain = domaDomain;
+          }
+        } catch (domaError) {
+          logger.warn(`Failed to fetch domain ${domainName} from DOMA API:`, domaError);
+        }
+      }
 
       const transactionCount = events.length;
       const uniqueOwners = new Set(events.map((event) => event.txHash ?? event.networkId ?? event.domainName)).size;
@@ -171,6 +208,8 @@ class TrendScorerService {
       };
 
       const rarity = calculateDomainRarity(rarityContext);
+
+      logger.info(`On-chain metrics for ${domainName}: ${transactionCount} transactions, ${uniqueOwners} unique owners, ${events.length > 0 ? 'found' : 'no'} events`);
 
       return {
         transactionCount,
