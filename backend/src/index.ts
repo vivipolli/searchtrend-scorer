@@ -19,35 +19,24 @@ class App {
   }
 
   private initializeMiddlewares(): void {
-    // Simple CORS middleware - MUST be first
+    // CORS middleware
     this.app.use((req, res, next) => {
-      console.log('🔍 CORS Middleware - Origin:', req.headers.origin);
-      console.log('🔍 CORS Middleware - Method:', req.method);
-      console.log('🔍 CORS Middleware - URL:', req.url);
-      
       const origin = req.headers.origin;
       
-      // Allow specific origins
       if (origin === 'https://searchtrend-scorer.vercel.app' || 
           origin === 'http://localhost:3000' || 
           origin === 'http://localhost:5173') {
         res.header('Access-Control-Allow-Origin', origin);
-        console.log('✅ CORS - Allowed origin:', origin);
       } else {
         res.header('Access-Control-Allow-Origin', '*');
-        console.log('✅ CORS - Wildcard origin');
       }
       
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Api-Key, X-Requested-With, Accept, Origin');
       res.header('Access-Control-Allow-Credentials', 'true');
-      res.header('Access-Control-Max-Age', '86400'); // 24 hours
+      res.header('Access-Control-Max-Age', '86400');
       
-      console.log('✅ CORS Headers set');
-      
-      // Handle preflight requests
       if (req.method === 'OPTIONS') {
-        console.log('✅ CORS - Handling OPTIONS preflight');
         res.status(200).end();
         return;
       }
@@ -88,52 +77,15 @@ class App {
   }
 
   private initializeRoutes(): void {
-    // Simple health check endpoint
-    this.app.get('/health', (req, res) => {
-      console.log('🔍 Health endpoint called - Origin:', req.headers.origin);
-      console.log('🔍 Health endpoint - Headers:', req.headers);
-      
-      try {
-        const response = {
-          success: true,
-          message: 'SearchTrend Scorer API is running',
-          timestamp: new Date(),
-          uptime: process.uptime(),
-          environment: process.env['NODE_ENV'] || 'development',
-          version: '1.0.0',
-        };
-        
-        console.log('✅ Health response:', response);
-        res.json(response);
-      } catch (error) {
-        console.error('❌ Health check error:', error);
-        res.status(500).json({
-          success: false,
-          error: 'Internal server error',
-          timestamp: new Date(),
-        });
-      }
-    });
-
-    // Debug endpoint
-    this.app.get('/debug', (_req, res) => {
+    // Health check endpoint
+    this.app.get('/health', (_req, res) => {
       res.json({
         success: true,
-        message: 'Debug endpoint working',
+        message: 'SearchTrend Scorer API is running',
         timestamp: new Date(),
-        environment: process.env['NODE_ENV'],
-        port: process.env['PORT'],
-        corsOrigin: process.env['CORS_ORIGIN'],
-      });
-    });
-
-    // CORS test endpoint
-    this.app.get('/cors-test', (req, res) => {
-      res.json({
-        success: true,
-        message: 'CORS test successful',
-        origin: req.headers.origin,
-        timestamp: new Date(),
+        uptime: process.uptime(),
+        environment: process.env['NODE_ENV'] || 'development',
+        version: '1.0.0',
       });
     });
 
@@ -152,14 +104,10 @@ class App {
   public listen(): void {
     const port = config.port;
     
-    console.log('🚀 Starting server on port:', port);
-    console.log('🚀 Environment:', config.nodeEnv);
-    
     try {
       this.app.listen(port, () => {
-        console.log(`🚀 SearchTrend Scorer API started successfully on port ${port}`);
-        console.log(`🚀 Environment: ${config.nodeEnv}`);
-        console.log(`🚀 Version: 1.0.0`);
+        logger.info(`SearchTrend Scorer API started successfully on port ${port}`);
+        logger.info(`Environment: ${config.nodeEnv}`);
 
         // Start polling service
         pollingService.start();
@@ -169,7 +117,7 @@ class App {
         process.on('SIGINT', this.gracefulShutdown);
       });
     } catch (error) {
-      console.error('❌ Failed to start server:', error);
+      logger.error('Failed to start server:', error);
       process.exit(1);
     }
   }
@@ -189,9 +137,7 @@ class App {
 }
 
 // Create and start the application
-console.log('🚀 Creating App instance...');
 const app = new App();
-console.log('🚀 App instance created, starting server...');
 app.listen();
 
 export default app;

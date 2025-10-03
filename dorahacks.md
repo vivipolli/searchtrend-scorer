@@ -4,13 +4,17 @@
 DomainFi lacks reliable, real-time valuation signals. Current domain scoring relies on outdated web2 metrics or fragmented on-chain data, creating blind spots for traders, market makers, and DeFi protocols.
 
 ## 💡 Our Solution
-**Trendom** is an AI-assisted scoring engine that unifies Web2 demand signals (Google Trends) with Web3 activity (DOMA Protocol events) to generate actionable domain valuations.
+**Trendom** is an AI-assisted scoring engine that unifies Web2 demand signals (Google Trends) with Web3 activity (DOMA Protocol events) to generate comprehensive domain valuations with actionable insights. Future roadmap includes social sentiment analysis from Twitter, Telegram, Reddit, and Discord.
 
 ### Key Features
 - **Unified Scoring (0-100)**: Combines search volume, trend direction, on-chain activity, and rarity
 - **Real-time Updates**: Polls DOMA events and updates scores incrementally
 - **AI Insights**: Cached LLM analysis providing strategic context and recommendations
 - **DeFi Ready**: Clean APIs for pricing, auctions, and recommendation bots
+
+### Future Enhancements
+- **Social Sentiment Analysis**: Multi-platform sentiment tracking (Twitter, Telegram, Reddit, Discord)
+- **Community Validation**: Real-time community sentiment before domain acquisition
 
 ### Technical Architecture
 ```
@@ -87,6 +91,28 @@ Our LLM analysis explicitly references trend metrics:
 
 This creates a transparent connection between trend data and domain valuation, prioritizing momentum over static volume.
 
+### Social Sentiment Analysis (Future Roadmap):
+**Multi-Platform Sentiment Scoring** (Planned):
+- **Twitter Sentiment**: Real-time analysis of crypto/Web3 community discussions
+- **Telegram Trends**: Community sentiment from crypto channels and groups
+- **Reddit Analysis**: Subreddit sentiment tracking (r/crypto, r/ethereum, r/defi)
+- **Discord Activity**: Web3 project community engagement metrics
+
+**Future Sentiment Integration**:
+```
+Social Sentiment Score (0-100) - Planned:
+- Twitter: 85/100 (Positive mentions: 78%, Volume: 1.2K tweets)
+- Telegram: 72/100 (Community buzz: High, Sentiment: Bullish)
+- Reddit: 68/100 (Upvotes ratio: 89%, Discussion quality: Good)
+- Discord: 91/100 (Active members: 2.1K, Engagement: Very High)
+```
+
+**Future Combined Scoring**:
+- Google Trends: 35% weight
+- Social Sentiment: 25% weight (FUTURE)
+- On-chain Activity: 25% weight
+- Rarity: 15% weight
+
 ## 🎯 Impact & Use Cases
 
 ### For Traders
@@ -103,6 +129,12 @@ This creates a transparent connection between trend data and domain valuation, p
 - **Collateral Valuation**: Accurate domain pricing for lending
 - **Auction Strategies**: Optimal reserve pricing
 - **Portfolio Management**: DAO treasury optimization
+
+### For Future Social Sentiment Analysis
+- **Community Validation**: Real-time community sentiment before domain acquisition (Planned)
+- **Trend Prediction**: Social buzz often precedes price movements (Planned)
+- **Risk Assessment**: Negative sentiment early warning system (Planned)
+- **Market Timing**: Optimal entry/exit based on social momentum (Planned)
 
 ## 🛠️ Technical Implementation
 
@@ -122,6 +154,11 @@ This creates a transparent connection between trend data and domain valuation, p
 - `trendScorerService`: Core scoring algorithm
 - `serpApiService`: Google Trends integration
 - `llmAnalysisService`: AI insights generation
+
+### Future Services (Planned)
+- `socialSentimentService`: Multi-platform sentiment analysis
+- `twitterApiService`: Twitter sentiment tracking
+- `telegramApiService`: Telegram community analysis
 
 ## 📊 Demo & Metrics
 
@@ -163,6 +200,9 @@ This creates a transparent connection between trend data and domain valuation, p
 - 🔄 Advanced rarity modeling
 - 🔄 Time-decay algorithms
 - 🔄 Sales comps integration
+- 🔄 **Social Sentiment Analysis**: Twitter API integration for real-time sentiment tracking
+- 🔄 **Telegram Trends**: Community sentiment analysis from crypto/Web3 channels
+- 🔄 **Multi-source Trends**: Reddit, Discord, and other social platforms for comprehensive sentiment scoring
 
 ### Phase 3: Production
 - 📋 Postgres migration
@@ -176,6 +216,14 @@ This creates a transparent connection between trend data and domain valuation, p
 - 📋 DAO dashboards
 - 📋 Cross-chain support
 
+### Phase 5: Social Sentiment Integration
+- 📋 Twitter API v2 integration for real-time sentiment
+- 📋 Telegram Bot API for community sentiment tracking
+- 📋 Reddit API for subreddit sentiment analysis
+- 📋 Discord Bot integration for community engagement metrics
+- 📋 Multi-platform sentiment aggregation and scoring
+- 📋 Sentiment-based domain alerts and notifications
+
 ## 💰 Business Model
 
 ### Revenue Streams
@@ -188,6 +236,8 @@ This creates a transparent connection between trend data and domain valuation, p
 - **DomainFi Market**: $2B+ in domain transactions
 - **DeFi Integration**: Growing need for RWA pricing
 - **Trading Tools**: Professional-grade analytics gap
+- **Social Sentiment**: Untapped market for community-driven domain valuation
+- **Multi-Platform Data**: First mover advantage in social sentiment analysis for domains
 
 
 ---
