@@ -35,6 +35,14 @@ export interface DomainScoreResponse {
       confidence: number;
       source?: string;
     };
+    onChain?: {
+      owner: string | null;
+      tokenId: string | null;
+      networkId: string;
+      tokenAddress: string | null;
+      mintedAt: string | null;
+      lastActivityAt: string | null;
+    };
     aiAnalysis?: AiAnalysisResponse['analysis'];
   };
 }

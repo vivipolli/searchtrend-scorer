@@ -40,16 +40,16 @@ export const TrendingList = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Insights</p>
-          <h2 className="text-xl font-semibold text-slate-100">Domínios mais quentes</h2>
+          <h2 className="text-xl font-semibold text-slate-100">Domain trending</h2>
         </div>
-        <span className="text-xs text-slate-500">update automático a cada 60s</span>
+        <span className="text-xs text-slate-500">update automatically every 60s</span>
       </div>
 
-      {loading && <p className="text-sm text-slate-400">Carregando domínios em tendência...</p>}
+      {loading && <p className="text-sm text-slate-400">Loading domain trending...</p>}
       {error && <p className="text-sm text-red-200">{error}</p>}
 
       <ul className="space-y-3 text-sm">
-        {domains.map((domain, index) => (
+        {domains.map((domain) => (
           <li
             key={domain.domainName}
             className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-4 shadow-inner shadow-black/30"
@@ -64,9 +64,7 @@ export const TrendingList = () => {
               <p>Search Volume: {(domain.breakdown.searchVolume || 0).toFixed(0)}</p>
               <p>Trend Direction: {(domain.breakdown.trendDirection || 0).toFixed(0)}</p>
             </div>
-            <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200">
-              #{index + 1}
-            </span>
+
           </li>
         ))}
       </ul>

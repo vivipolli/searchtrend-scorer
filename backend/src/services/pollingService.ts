@@ -83,7 +83,7 @@ class PollingService {
       for (const event of result.events) {
         try {
           // Check if event already processed
-          if (db.isEventProcessed(event.uniqueId)) {
+      if (await db.isEventProcessed(event.uniqueId)) {
             continue;
           }
 
@@ -93,13 +93,13 @@ class PollingService {
           const txHash = event.eventData?.txHash;
 
           // Store event in database
-          const eventId = db.insertEvent({
+          const eventId = await db.insertEvent({
             uniqueId: event.uniqueId,
             eventType: event.type,
             domainName: event.name,
             price,
-            txHash,
-            networkId,
+            txHash: txHash ?? null,
+            networkId: networkId ?? null,
             createdAt: new Date(),
           });
 
@@ -174,9 +174,9 @@ class PollingService {
     try {
       logger.info('Manual polling triggered');
       
-      const initialStats = db.getStats();
+      const initialStats = await db.getStats();
       await this.pollAndProcessEvents();
-      const finalStats = db.getStats();
+      const finalStats = await db.getStats();
       
       const processedEvents = finalStats.totalEvents - initialStats.totalEvents;
 
@@ -201,7 +201,7 @@ class PollingService {
     try {
       logger.info('Updating stale trend scores');
 
-      const staleScores = db.getStaleTrendScores(config.scoring.updateIntervalHours);
+      const staleScores = await db.getStaleTrendScores(config.scoring.updateIntervalHours);
       
       if (staleScores.length === 0) {
         logger.debug('No stale trend scores found');

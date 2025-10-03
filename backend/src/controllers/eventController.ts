@@ -3,7 +3,7 @@ import { asyncHandler } from '@/middleware/errorHandler';
 import { domaService } from '@/services/domaService';
 import { db } from '@/utils/database';
 import logger from '@/utils/logger';
-import { ApiResponse, PaginatedResponse } from '@/types';
+import { ApiResponse, PaginatedResponse, DatabaseEvent } from '@/types';
 
 export const pollEvents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { limit = 25, finalizedOnly = true } = req.query;
@@ -15,20 +15,20 @@ export const pollEvents = asyncHandler(async (req: Request, res: Response): Prom
     const result = await domaService.pollEvents(Number(limit), finalizedOnly === 'true');
 
     // Process and store events
-    const processedEvents = [];
+    const processedEvents: DatabaseEvent[] = [];
     for (const event of result.events) {
       // Check if event already processed
-      if (db.isEventProcessed(event.uniqueId)) {
+      if (await db.isEventProcessed(event.uniqueId)) {
         continue;
       }
 
       // Extract event data
       const price = domaService.extractPriceFromEvent(event);
       const networkId = domaService.extractNetworkIdFromEvent(event);
-      const txHash = event.eventData?.txHash;
+      const txHash = event.eventData?.txHash ?? null;
 
       // Store event in database
-      const eventId = db.insertEvent({
+      const eventId = await db.insertEvent({
         uniqueId: event.uniqueId,
         eventType: event.type,
         domainName: event.name,
@@ -44,9 +44,10 @@ export const pollEvents = asyncHandler(async (req: Request, res: Response): Prom
           uniqueId: event.uniqueId,
           eventType: event.type,
           domainName: event.name,
-          price,
+          price: price ?? null,
           txHash,
-          networkId,
+          networkId: networkId ?? null,
+          createdAt: new Date(),
         });
       }
     }
@@ -86,7 +87,7 @@ export const getRecentEvents = asyncHandler(async (req: Request, res: Response):
   logger.info('Getting recent events', { limit });
 
   try {
-    const events = db.getRecentEvents(Number(limit));
+    const events = await db.getRecentEvents(Number(limit));
 
     const response: ApiResponse<typeof events> = {
       success: true,
@@ -109,7 +110,16 @@ export const getEventsByDomain = asyncHandler(async (req: Request, res: Response
   logger.info(`Getting events for domain: ${domainName}`, { limit });
 
   try {
-    const events = db.getEventsByDomain(domainName, Number(limit));
+    if (!domainName) {
+      res.status(400).json({
+        success: false,
+        error: 'Domain name is required',
+        timestamp: new Date(),
+      } satisfies ApiResponse<null>);
+      return;
+    }
+
+    const events = await db.getEventsByDomain(domainName, Number(limit));
 
     const response: ApiResponse<typeof events> = {
       success: true,
@@ -129,7 +139,7 @@ export const getEventStats = asyncHandler(async (req: Request, res: Response): P
   logger.info('Getting event statistics');
 
   try {
-    const stats = db.getStats();
+    const stats = await db.getStats();
 
     const response: ApiResponse<{
       totalEvents: number;
@@ -161,7 +171,7 @@ export const healthCheck = asyncHandler(async (req: Request, res: Response): Pro
     const domaApiHealthy = await domaService.healthCheck();
     
     // Check database health
-    const dbStats = db.getStats();
+    const dbStats = await db.getStats();
     const dbHealthy = dbStats.totalEvents >= 0; // Simple check
 
     const healthStatus = {

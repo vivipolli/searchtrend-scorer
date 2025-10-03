@@ -4,10 +4,38 @@ import { domaService } from '@/services/domaService';
 import { trendScorerService } from '@/services/trendScorerService';
 import { db } from '@/utils/database';
 import logger from '@/utils/logger';
-import { ApiResponse, PaginatedResponse, GetDomainsRequest } from '@/types';
+import {
+  ApiResponse,
+  PaginatedResponse,
+  GetDomainsRequest,
+  TrendScore,
+  AiAnalysisInsight,
+  Domain,
+} from '@/types';
+
+type TrendScoreResponse = TrendScore & {
+  aiAnalysis?: AiAnalysisInsight;
+  onChain?: {
+    owner: string | null;
+    tokenId: string | null;
+    networkId: string;
+    tokenAddress: string | null;
+    mintedAt: Date | null;
+    lastActivityAt: Date | null;
+  };
+};
 
 export const scoreDomain = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { domainName, forceUpdate } = req.body;
+
+  if (typeof domainName !== 'string' || domainName.trim() === '') {
+    res.status(400).json({
+      success: false,
+      error: 'Domain name is required',
+      timestamp: new Date(),
+    } satisfies ApiResponse<null>);
+    return;
+  }
 
   logger.info(`Scoring domain request: ${domainName}`, { forceUpdate });
 
@@ -17,21 +45,22 @@ export const scoreDomain = asyncHandler(async (req: Request, res: Response): Pro
     
     if (domainInfo) {
       logger.info(`Domain ${domainName} found in DOMA registry`);
-      // Store/update domain in local database
-      db.insertOrUpdateDomain({
+      await db.insertOrUpdateDomain({
         name: domainInfo.name,
-        tokenId: domainInfo.tokenId,
-        owner: domainInfo.owner,
+        tokenId: domainInfo.tokenId ?? null,
+        owner: domainInfo.owner ?? null,
         claimStatus: domainInfo.claimStatus,
         networkId: domainInfo.networkId,
-        tokenAddress: domainInfo.tokenAddress,
+        tokenAddress: domainInfo.tokenAddress ?? null,
+        mintedAt: domainInfo.mintedAt ?? null,
+        lastActivityAt: domainInfo.lastActivityAt ?? null,
       });
     } else {
       logger.warn(`Domain ${domainName} not found in DOMA registry, calculating score with available data`);
     }
 
     // Calculate trend score (works with or without DOMA data)
-    const trendScore = await trendScorerService.updateTrendScore(domainName, forceUpdate);
+    const trendScore = await trendScorerService.updateTrendScore(domainName, Boolean(forceUpdate));
 
     const response: ApiResponse<typeof trendScore> = {
       success: true,
@@ -50,6 +79,15 @@ export const scoreDomain = asyncHandler(async (req: Request, res: Response): Pro
 export const getDomainScore = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { domainName } = req.params;
 
+  if (!domainName) {
+    res.status(400).json({
+      success: false,
+      error: 'Domain name is required',
+      timestamp: new Date(),
+    } satisfies ApiResponse<null>);
+    return;
+  }
+
   logger.info(`Getting domain score: ${domainName}`);
 
   try {
@@ -65,15 +103,35 @@ export const getDomainScore = asyncHandler(async (req: Request, res: Response): 
     }
 
     const aiInsight = await db.getAiInsight(domainName);
+    const domainRecord = await db.getDomain(domainName);
 
-    const response: ApiResponse<typeof trendScore> = {
+    type TrendScoreResponse = TrendScore & {
+      aiAnalysis?: AiAnalysisInsight;
+      onChain?: {
+        owner: string | null;
+        tokenId: string | null;
+        networkId: string;
+        tokenAddress: string | null;
+        mintedAt: Date | null;
+        lastActivityAt: Date | null;
+      };
+    };
+
+    const response: ApiResponse<TrendScoreResponse> = {
       success: true,
       data: {
-        domainName: trendScore.domainName,
-        score: trendScore.score,
-        breakdown: trendScore.breakdown,
-        metadata: trendScore.metadata,
-        aiAnalysis: aiInsight?.analysis,
+        ...trendScore,
+        aiAnalysis: aiInsight?.analysis ?? undefined,
+        onChain: domainRecord
+          ? {
+              owner: domainRecord.owner ?? null,
+              tokenId: domainRecord.tokenId ?? null,
+              networkId: domainRecord.networkId,
+              tokenAddress: domainRecord.tokenAddress ?? null,
+              mintedAt: domainRecord.mintedAt ?? null,
+              lastActivityAt: domainRecord.lastActivityAt ?? null,
+            }
+          : undefined,
       },
       timestamp: new Date(),
     };
@@ -87,6 +145,15 @@ export const getDomainScore = asyncHandler(async (req: Request, res: Response): 
 
 export const getDomainAiAnalysis = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { domainName } = req.params;
+
+  if (!domainName) {
+    res.status(400).json({
+      success: false,
+      error: 'Domain name is required',
+      timestamp: new Date(),
+    } satisfies ApiResponse<null>);
+    return;
+  }
 
   logger.info(`Getting AI analysis for domain: ${domainName}`);
 
@@ -142,10 +209,6 @@ export const getDomains = asyncHandler(async (req: Request, res: Response): Prom
     limit = 20,
     sortBy = 'score',
     sortOrder = 'desc',
-    minScore,
-    maxScore,
-    eventType,
-    networkId,
   } = query;
 
   logger.info('Getting domains with filters', { query });
@@ -153,22 +216,10 @@ export const getDomains = asyncHandler(async (req: Request, res: Response): Prom
   try {
     // Get domains from local database
     const offset = (page - 1) * limit;
-    const domains = db.getAllDomains(limit, offset);
+    const domains = await db.getAllDomains(limit, offset);
 
     // Apply filters
-    let filteredDomains = domains;
-
-    if (minScore !== undefined || maxScore !== undefined) {
-      filteredDomains = domains.filter(domain => {
-        const score = db.getTrendScore(domain.name);
-        if (!score) return false;
-        
-        if (minScore !== undefined && score.score < minScore) return false;
-        if (maxScore !== undefined && score.score > maxScore) return false;
-        
-        return true;
-      });
-    }
+    const filteredDomains = domains; // Filtering temporarily disabled until other filters implemented
 
     // Get total count for pagination
     const total = filteredDomains.length;
@@ -197,11 +248,20 @@ export const getDomains = asyncHandler(async (req: Request, res: Response): Prom
 export const getDomainDetails = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { domainName } = req.params;
 
+  if (!domainName) {
+    res.status(400).json({
+      success: false,
+      error: 'Domain name is required',
+      timestamp: new Date(),
+    } satisfies ApiResponse<null>);
+    return;
+  }
+
   logger.info(`Getting domain details: ${domainName}`);
 
   try {
     // Get domain from local database
-    const domain = db.getDomain(domainName);
+    const domain = await db.getDomain(domainName);
     
     if (!domain) {
       res.status(404).json({
@@ -213,10 +273,10 @@ export const getDomainDetails = asyncHandler(async (req: Request, res: Response)
     }
 
     // Get trend score
-    const trendScore = db.getTrendScore(domainName);
+    const trendScore = await db.getTrendScore(domainName);
 
     // Get recent events
-    const events = db.getEventsByDomain(domainName, 10);
+    const events = await db.getEventsByDomain(domainName, 10);
 
     const response: ApiResponse<{
       domain: typeof domain;
@@ -240,7 +300,7 @@ export const getDomainDetails = asyncHandler(async (req: Request, res: Response)
 });
 
 export const searchDomains = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const { query, limit = 20 } = req.query;
+  const { query, limit = 20 } = req.query as { query?: string; limit?: number };
 
   if (!query || typeof query !== 'string') {
     res.status(400).json({
@@ -255,7 +315,7 @@ export const searchDomains = asyncHandler(async (req: Request, res: Response): P
 
   try {
     // Search in local database
-    const allDomains = db.getAllDomains(1000, 0); // Get more domains for search
+    const allDomains = await db.getAllDomains(1000, 0); // Get more domains for search
     const searchResults = allDomains.filter(domain => 
       domain.name.toLowerCase().includes(query.toLowerCase())
     ).slice(0, Number(limit));
@@ -278,7 +338,7 @@ export const getDomainStats = asyncHandler(async (req: Request, res: Response): 
   logger.info('Getting domain statistics');
 
   try {
-    const stats = db.getStats();
+    const stats = await db.getStats();
 
     const response: ApiResponse<typeof stats> = {
       success: true,

@@ -1,10 +1,20 @@
 import axios, { AxiosResponse } from 'axios';
 import { config } from '@/config';
 import logger from '@/utils/logger';
-import { DomaEvent, Domain, ApiResponse } from '@/types';
+import { DomaEvent, Domain } from '@/types';
 
 interface DomaApiDomain {
   name: string;
+  token?: {
+    tokenId?: string;
+    address?: string;
+    networkId?: string;
+    owner?: {
+      address: string;
+    } | null;
+    createdAt?: string;
+    lastActivityAt?: string;
+  } | null;
 }
 
 class DomaService {
@@ -117,6 +127,16 @@ class DomaService {
           ) {
             items {
               name
+              token {
+                tokenId
+                address
+                networkId
+                createdAt
+                lastActivityAt
+                owner {
+                  address
+                }
+              }
             }
             totalCount
           }
@@ -156,16 +176,19 @@ class DomaService {
       // Map API response to Domain objects
       const domains: Domain[] = result.items.map((item: DomaApiDomain) => {
         const now = new Date();
+        const token = item.token;
         return {
-          id: item.name, // Use name as ID since we don't have a separate ID field
+          id: item.name,
           name: item.name,
-          tokenId: undefined,
-          owner: undefined,
-          claimStatus: 'UNCLAIMED' as const, // Default since we don't have this info
-          networkId: 'unknown', // Default since we don't have this info
-          tokenAddress: undefined,
-          createdAt: now,
-          updatedAt: now,
+          tokenId: token?.tokenId ?? null,
+          owner: token?.owner?.address ?? null,
+          claimStatus: token?.owner?.address ? 'CLAIMED' : 'UNCLAIMED',
+          networkId: token?.networkId ?? 'unknown',
+          tokenAddress: token?.address ?? null,
+          createdAt: token?.createdAt ? new Date(token.createdAt) : now,
+          updatedAt: token?.lastActivityAt ? new Date(token.lastActivityAt) : now,
+          mintedAt: token?.createdAt ? new Date(token.createdAt) : null,
+          lastActivityAt: token?.lastActivityAt ? new Date(token.lastActivityAt) : null,
         };
       });
 
@@ -184,16 +207,12 @@ class DomaService {
    */
   async getDomainByName(domainName: string): Promise<Domain | null> {
     try {
-      // Temporarily disable DOMA API calls to avoid blocking
-      logger.warn(`DOMA API call disabled for ${domainName} - returning null`);
-      return null;
-      
-      // const result = await this.queryDomains({
-      //   name: domainName,
-      //   take: 1,
-      // });
+      const result = await this.queryDomains({
+        name: domainName,
+        take: 1,
+      });
 
-      // return result.data.length > 0 ? result.data[0] : null;
+      return result.data.length > 0 ? result.data[0] : null;
     } catch (error) {
       logger.error(`Failed to get domain ${domainName}:`, error);
       return null;

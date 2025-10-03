@@ -15,14 +15,14 @@ export const Layout = ({ children }: LayoutProps) => {
               DOMA + Google Trends Analytics Dashboard
             </h1>
             <p className="mt-1 text-slate-400">
-              Insights sobre demanda real de domínios conectando sinais Web2 e Web3.
+              Insights about real domain demand connecting Web2 and Web3 signals.
             </p>
           </div>
           <a
             href="https://github.com"
             className="inline-flex items-center rounded-full border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20 hover:text-blue-100"
           >
-            Ver Documentação
+            View Documentation
           </a>
         </div>
       </header>
@@ -32,7 +32,7 @@ export const Layout = ({ children }: LayoutProps) => {
       <footer className="border-t border-slate-800 bg-slate-900/40">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <span>© {new Date().getFullYear()} SearchTrend Scorer</span>
-          <span>Hackathon DOMA • Track 4</span>
+          <span>DOMA Hackathon • Track 4</span>
         </div>
       </footer>
     </div>

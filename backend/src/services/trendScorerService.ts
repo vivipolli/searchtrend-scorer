@@ -16,6 +16,7 @@ import {
   calculateOnChainActivity,
   calculateWeightedScore,
   calculateConfidence,
+  DomainRarityContext,
 } from '@/utils/domainAnalysis';
 
 class TrendScorerService {
@@ -151,20 +152,25 @@ class TrendScorerService {
    */
   private async getOnChainMetrics(domainName: string): Promise<OnChainMetrics> {
     try {
-      // Get events from database
       const events = await db.getEventsByDomain(domainName);
+      const domain = await db.getDomain(domainName);
 
-      // Calculate metrics
       const transactionCount = events.length;
-      const uniqueOwners = new Set(events.map((e) => e.txHash)).size;
-      const prices = events.map((e) => e.price).filter((p): p is number => p !== null);
+      const uniqueOwners = new Set(events.map((event) => event.txHash ?? event.networkId ?? event.domainName)).size;
+      const prices = events.map((event) => event.price).filter((price): price is number => price !== null);
       const averagePrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
 
-      // Calculate liquidity (based on transaction frequency and volume)
-      const liquidity = calculateLiquidity(events);
+      const liquidity = calculateLiquidity(events, domain?.lastActivityAt ?? null);
 
-      // Calculate rarity (based on TLD, length, uniqueness)
-      const rarity = calculateDomainRarity(domainName);
+      const rarityContext: DomainRarityContext = {
+        domainName,
+        mintedAt: domain?.mintedAt ?? null,
+        lastActivityAt: domain?.lastActivityAt ?? null,
+        owner: domain?.owner ?? null,
+        tokenId: domain?.tokenId ?? null,
+      };
+
+      const rarity = calculateDomainRarity(rarityContext);
 
       return {
         transactionCount,

@@ -8,7 +8,7 @@ export const BackendStatusCard = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Backend</p>
-          <h2 className="text-xl font-semibold text-slate-100">Status da Integração</h2>
+          <h2 className="text-xl font-semibold text-slate-100">Integration status</h2>
         </div>
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
@@ -19,15 +19,15 @@ export const BackendStatusCard = () => {
               : 'bg-red-500/10 text-red-300'
           }`}
         >
-          {status.loading ? 'Verificando...' : status.healthy ? 'Operacional' : 'Indisponível'}
+          {status.loading ? 'Checking...' : status.healthy ? 'Operational' : 'Unavailable'}
         </span>
       </div>
 
       <div className="space-y-3 text-sm text-slate-400">
-        {status.loading && <p>Checando status do backend...</p>}
+        {status.loading && <p>Checking backend status...</p>}
         {!status.loading && status.healthy && (
           <>
-            <p>{status.message ?? 'Integração com DOMA e Google Trends disponível.'}</p>
+            <p>{status.message ?? 'Integration with DOMA and Google Trends available.'}</p>
             {status.uptime !== undefined && (
               <p className="text-xs text-slate-500">
                 Uptime: {(status.uptime / 60).toFixed(1)} minutos
@@ -40,18 +40,18 @@ export const BackendStatusCard = () => {
               </li>
               <li className="flex items-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-blue-400" />
-                Google Trends Analysis disponível
+                Google Trends Analysis available
               </li>
               <li className="flex items-center gap-2">
                 <span className="inline-flex h-2 w-2 rounded-full bg-blue-400" />
-                Banco de dados local sincronizado
+                Local database synchronized
               </li>
             </ul>
           </>
         )}
         {!status.loading && !status.healthy && (
           <p className="text-red-200">
-            Não foi possível conectar ao backend. Verifique se o servidor está rodando em{' '}
+            Unable to connect to backend. Please check if the server is running at{' '}
             <code className="rounded bg-slate-800 px-1 py-0.5 text-xs text-blue-200">
               {import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}
             </code>

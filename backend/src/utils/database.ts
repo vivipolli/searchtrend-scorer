@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import { config } from '@/config';
 import logger from './logger';
-import { DatabaseEvent, DatabaseTrendScore, AiInsightsCacheEntry } from '@/types';
+import { Domain, DatabaseEvent, DatabaseTrendScore, AiInsightsCacheEntry } from '@/types';
 
 class DatabaseManager {
   private db: sqlite3.Database;
@@ -75,10 +75,25 @@ class DatabaseManager {
           claim_status TEXT NOT NULL,
           network_id TEXT NOT NULL,
           token_address TEXT,
+          minted_at TIMESTAMP,
+          last_activity_at TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+
+      // Backfill columns when migrating an existing database
+      try {
+        await run('ALTER TABLE domains ADD COLUMN minted_at TIMESTAMP');
+      } catch (error) {
+        logger.debug('Column minted_at already exists or cannot be added', error);
+      }
+
+      try {
+        await run('ALTER TABLE domains ADD COLUMN last_activity_at TIMESTAMP');
+      } catch (error) {
+        logger.debug('Column last_activity_at already exists or cannot be added', error);
+      }
 
       // AI insights cache table
       await run(`
@@ -117,6 +132,7 @@ class DatabaseManager {
 
   // Events methods
   async insertEvent(event: Omit<DatabaseEvent, 'id'>): Promise<number> {
+    await this.initialized;
     const run = (this as any).run;
     const result = await run(
       `INSERT OR IGNORE INTO events 
@@ -125,9 +141,9 @@ class DatabaseManager {
       event.uniqueId,
       event.eventType,
       event.domainName,
-      event.price,
-      event.txHash,
-      event.networkId,
+      event.price ?? null,
+      event.txHash ?? null,
+      event.networkId ?? null,
       event.createdAt.toISOString()
     );
     
@@ -135,6 +151,7 @@ class DatabaseManager {
   }
 
   async getEventsByDomain(domainName: string, limit: number = 100): Promise<DatabaseEvent[]> {
+    await this.initialized;
     const all = (this as any).all;
     return await all(
       `SELECT * FROM events 
@@ -146,6 +163,7 @@ class DatabaseManager {
   }
 
   async getRecentEvents(limit: number = 50): Promise<DatabaseEvent[]> {
+    await this.initialized;
     const all = (this as any).all;
     return await all(
       `SELECT * FROM events 
@@ -156,6 +174,7 @@ class DatabaseManager {
   }
 
   async isEventProcessed(uniqueId: string): Promise<boolean> {
+    await this.initialized;
     const get = (this as any).get;
     const result = await get('SELECT 1 FROM events WHERE unique_id = ?', uniqueId);
     return !!result;
@@ -201,6 +220,7 @@ class DatabaseManager {
   }
 
   async getStaleTrendScores(hoursOld: number = 6): Promise<DatabaseTrendScore[]> {
+    await this.initialized;
     const all = (this as any).all;
     return await all(
       `SELECT * FROM trend_scores 
@@ -211,6 +231,7 @@ class DatabaseManager {
 
   // API usage methods
   async incrementApiUsage(service: string, date: string): Promise<void> {
+    await this.initialized;
     const run = (this as any).run;
     await run(
       `INSERT INTO api_usage (service, date, count)
@@ -223,6 +244,7 @@ class DatabaseManager {
   }
 
   async getApiUsage(service: string, date: string): Promise<number> {
+    await this.initialized;
     const get = (this as any).get;
     const result = await get(
       `SELECT count FROM api_usage WHERE service = ? AND date = ?`,
@@ -236,41 +258,63 @@ class DatabaseManager {
   // Domains methods
   async insertOrUpdateDomain(domain: {
     name: string;
-    tokenId?: string;
-    owner?: string;
+    tokenId?: string | null;
+    owner?: string | null;
     claimStatus: string;
     networkId: string;
-    tokenAddress?: string;
+    tokenAddress?: string | null;
+    mintedAt?: Date | null;
+    lastActivityAt?: Date | null;
   }): Promise<number> {
+    await this.initialized;
     const run = (this as any).run;
+    const mintedAtIso = domain.mintedAt ? domain.mintedAt.toISOString() : null;
+    const lastActivityIso = domain.lastActivityAt ? domain.lastActivityAt.toISOString() : null;
+
     const result = await run(
-      `INSERT OR REPLACE INTO domains 
-       (name, token_id, owner, claim_status, network_id, token_address, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      `INSERT INTO domains 
+       (name, token_id, owner, claim_status, network_id, token_address, minted_at, last_activity_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(name) DO UPDATE SET
+         token_id = excluded.token_id,
+         owner = excluded.owner,
+         claim_status = excluded.claim_status,
+         network_id = excluded.network_id,
+         token_address = excluded.token_address,
+         minted_at = COALESCE(excluded.minted_at, domains.minted_at),
+         last_activity_at = COALESCE(excluded.last_activity_at, domains.last_activity_at),
+         updated_at = CURRENT_TIMESTAMP`,
       domain.name,
       domain.tokenId,
       domain.owner,
       domain.claimStatus,
       domain.networkId,
-      domain.tokenAddress
+      domain.tokenAddress,
+      mintedAtIso,
+      lastActivityIso,
     );
-    
-    return result.lastID;
+
+    return result?.lastID ?? 0;
   }
 
-  async getDomain(name: string): Promise<any> {
+  async getDomain(name: string): Promise<Domain | null> {
+    await this.initialized;
     const get = (this as any).get;
-    return await get('SELECT * FROM domains WHERE name = ?', name);
+    const row = await get('SELECT * FROM domains WHERE name = ?', name);
+    return row ? this.mapDomainRow(row) : null;
   }
 
-  async getAllDomains(limit: number = 100, offset: number = 0): Promise<any[]> {
+  async getAllDomains(limit: number = 100, offset: number = 0): Promise<Domain[]> {
+    await this.initialized;
     const all = (this as any).all;
-    return await all(
+    const rows = await all(
       `SELECT * FROM domains 
        ORDER BY updated_at DESC 
        LIMIT ? OFFSET ?`,
-      limit, offset
+      limit, offset,
     );
+
+    return rows.map((row: any) => this.mapDomainRow(row));
   }
 
   // AI insights methods
@@ -330,6 +374,7 @@ class DatabaseManager {
     totalTrendScores: number;
     lastEventDate: string | null;
   }> {
+    await this.initialized;
     const get = (this as any).get;
     const eventsCount = await get('SELECT COUNT(*) as count FROM events');
     const domainsCount = await get('SELECT COUNT(*) as count FROM domains');
@@ -341,6 +386,22 @@ class DatabaseManager {
       totalDomains: domainsCount.count,
       totalTrendScores: scoresCount.count,
       lastEventDate: lastEvent.last_date,
+    };
+  }
+
+  private mapDomainRow(row: any): Domain {
+    return {
+      id: row.name,
+      name: row.name,
+      tokenId: row.token_id ?? null,
+      owner: row.owner ?? null,
+      claimStatus: (row.claim_status as Domain['claimStatus']) ?? 'UNCLAIMED',
+      networkId: row.network_id ?? 'unknown',
+      tokenAddress: row.token_address ?? null,
+      createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+      updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
+      mintedAt: row.minted_at ? new Date(row.minted_at) : null,
+      lastActivityAt: row.last_activity_at ? new Date(row.last_activity_at) : null,
     };
   }
 

@@ -180,15 +180,49 @@ export function analyzeGeographicData(domainName: string): Record<string, number
   return adjusted;
 }
 
+export interface DomainRarityContext {
+  domainName: string;
+  mintedAt: Date | null;
+  lastActivityAt: Date | null;
+  owner?: string | null;
+  tokenId?: string | null;
+}
+
 /**
  * Calculate domain rarity based on market analysis
  */
-export function calculateDomainRarity(domainName: string): number {
+export function calculateDomainRarity(context: string | DomainRarityContext): number {
+  const contextObj: DomainRarityContext = typeof context === 'string'
+    ? { domainName: context, mintedAt: null, lastActivityAt: null, owner: null, tokenId: null }
+    : context;
+
+  const domainName = contextObj.domainName;
+  const mintedAt = contextObj.mintedAt ?? null;
+  const lastActivityAt = contextObj.lastActivityAt ?? null;
+  const owner = contextObj.owner ?? null;
   const name = domainName.split('.')[0]?.toLowerCase() || domainName.toLowerCase();
   const tld = domainName.split('.').pop()?.toLowerCase() || '';
-  
-  let rarity = 30; // Base rarity
-  
+
+  let rarity = 30;
+
+  if (mintedAt) {
+    const ageDays = (Date.now() - mintedAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (ageDays > 365) rarity += 5;
+    if (ageDays > 730) rarity += 5;
+  }
+
+  if (lastActivityAt) {
+    const inactivityDays = (Date.now() - lastActivityAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (inactivityDays > 180) rarity += 5;
+    if (inactivityDays > 365) rarity += 5;
+  }
+
+  if (!owner) {
+    rarity += 5;
+  } else {
+    rarity -= 3;
+  }
+
   // Length analysis (shorter = rarer and more valuable)
   if (name.length <= 2) rarity += 40;      // Ultra rare
   else if (name.length <= 3) rarity += 35; // Very rare
@@ -273,17 +307,30 @@ export function isDictionaryWord(name: string): boolean {
 /**
  * Calculate liquidity based on events
  */
-export function calculateLiquidity(events: any[]): number {
-  if (events.length === 0) return 0;
-  
-  // Simple liquidity calculation based on transaction frequency
+export function calculateLiquidity(events: any[], lastActivityAt: Date | null = null): number {
+  if (events.length === 0) {
+    if (!lastActivityAt) return 0;
+    const daysSinceLastActivity = (Date.now() - lastActivityAt.getTime()) / (1000 * 60 * 60 * 24);
+    return daysSinceLastActivity > 180 ? 0 : Math.max(0, 100 - daysSinceLastActivity);
+  }
+
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  
-  const recentEvents = events.filter(e => new Date(e.createdAt) > thirtyDaysAgo);
-  const liquidity = Math.min(100, (recentEvents.length / 30) * 100);
-  
-  return liquidity;
+
+  const recentEvents = events.filter((event) => new Date(event.createdAt) > thirtyDaysAgo);
+  let liquidity = Math.min(100, (recentEvents.length / 30) * 100);
+
+  if (lastActivityAt) {
+    const daysSinceLastActivity = (Date.now() - lastActivityAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceLastActivity > 60) {
+      liquidity *= 0.8;
+    }
+    if (daysSinceLastActivity > 120) {
+      liquidity *= 0.6;
+    }
+  }
+
+  return Math.max(0, Math.min(100, liquidity));
 }
 
 /**
@@ -327,12 +374,12 @@ export function calculateWeightedScore(components: {
   onChainActivity: number;
   rarity: number;
 }): number {
-  // Weighted combination
+  // Weighted combination - Trend Direction is most important
   const weights = {
-    searchVolume: 0.3,
-    trendDirection: 0.25,
-    onChainActivity: 0.25,
-    rarity: 0.2,
+    trendDirection: 0.35,   // 35% - Most important (trend > volume)
+    searchVolume: 0.25,     // 25% - Base demand
+    onChainActivity: 0.25,  // 25% - On-chain activity
+    rarity: 0.15,          // 15% - Rarity factor
   };
   
   const score = 

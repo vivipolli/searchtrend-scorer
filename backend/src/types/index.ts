@@ -2,13 +2,15 @@
 export interface Domain {
   id: string;
   name: string;
-  tokenId?: string;
-  owner?: string;
+  tokenId?: string | null;
+  owner?: string | null;
   claimStatus: 'CLAIMED' | 'UNCLAIMED';
   networkId: string;
-  tokenAddress?: string;
+  tokenAddress?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  mintedAt?: Date | null;
+  lastActivityAt?: Date | null;
 }
 
 // DOMA API event types
@@ -68,7 +70,17 @@ export interface AiAnalysisInsight {
 }
 
 export interface DomainScoreWithAi extends TrendScore {
+  // Optional AI analysis enhancements attached to trend score
   aiAnalysis?: AiAnalysisInsight;
+  // Additional on-chain metadata resolved from our database/cache layer
+  onChain?: {
+    owner: string | null;
+    tokenId: string | null;
+    networkId: string;
+    tokenAddress: string | null;
+    mintedAt: Date | null;
+    lastActivityAt: Date | null;
+  };
 }
 
 export interface SearchMetrics {
@@ -189,9 +201,9 @@ export interface DatabaseEvent {
   uniqueId: string;
   eventType: DomaEventType;
   domainName: string;
-  price?: number;
-  txHash?: string;
-  networkId?: string;
+  price: number | null;
+  txHash: string | null;
+  networkId: string | null;
   createdAt: Date;
 }
 

@@ -3,7 +3,7 @@ import Joi from 'joi';
 import { AppError } from '@/types';
 
 export const validateRequest = (schema: Joi.ObjectSchema) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const { error } = schema.validate(req.body);
     
     if (error) {
@@ -16,7 +16,7 @@ export const validateRequest = (schema: Joi.ObjectSchema) => {
 };
 
 export const validateQuery = (schema: Joi.ObjectSchema) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const { error } = schema.validate(req.query);
     
     if (error) {
@@ -29,7 +29,7 @@ export const validateQuery = (schema: Joi.ObjectSchema) => {
 };
 
 export const validateParams = (schema: Joi.ObjectSchema) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const { error } = schema.validate(req.params);
     
     if (error) {

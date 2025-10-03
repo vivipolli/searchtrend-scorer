@@ -15,7 +15,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!domainName.trim()) {
-      setError('Informe um domínio válido.');
+      setError('Please enter a valid domain.');
       return;
     }
 
@@ -67,7 +67,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
 
       onAnalysisStatus?.('pending');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao buscar score.');
+      setError(err instanceof Error ? err.message : 'Error fetching score.');
       onAnalysisStatus?.('pending');
     } finally {
       setLoading(false);
@@ -82,10 +82,11 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
       <div>
         <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Demo</p>
         <h2 className="mt-1 text-xl font-semibold text-slate-100">
-          Calcule o TrendScore de um domínio
+          Calculate the TrendScore of a domain
         </h2>
         <p className="mt-2 text-sm text-slate-400">
-          Executa análise combinada utilizando DOMA Poll API, métricas on-chain e sinais do Google
+          Executes combined analysis using DOMA Poll API, on-chain metrics and Google
+          Trends signals. Use domains like <code className="font-mono text-blue-300">crypto.eth</code>,{' '}
           Trends. Use domínios como <code className="font-mono text-blue-300">crypto.eth</code>,{' '}
           <code className="font-mono text-blue-300">ai.crypto</code>,{' '}
           <code className="font-mono text-blue-300">nft.dao</code>.
@@ -94,7 +95,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
 
       <div className="space-y-3">
         <label className="block text-sm font-medium text-slate-300" htmlFor="domainName">
-          Nome do domínio
+          Domain name
         </label>
         <input
           id="domainName"
@@ -113,7 +114,7 @@ export const ScoreForm = ({ onResult, onAnalysisStatus }: ScoreFormProps) => {
         disabled={loading}
         className="w-full rounded-xl bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 px-4 py-3 text-base font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:shadow-xl hover:shadow-blue-500/40 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? 'Calculando...' : 'Calcular TrendScore'}
+        {loading ? 'Calculating...' : 'Calculate TrendScore'}
       </button>
     </form>
   );

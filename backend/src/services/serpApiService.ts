@@ -3,6 +3,7 @@ import { config } from '@/config';
 import logger from '@/utils/logger';
 import { SearchMetrics } from '@/types';
 import { db } from '@/utils/database';
+import OpenAI from 'openai';
 
 interface CachedEntry {
   expiresAt: number;
@@ -56,16 +57,17 @@ export class SerpApiService {
     }
 
     if (config.serpApi.useMockData || !config.serpApi.enabled || !config.serpApi.apiKey) {
-      logger.warn('SerpApi mock mode active', {
+      logger.warn('SerpApi unavailable, using AI-based fallback analysis', {
         domainName,
         keyword,
         useMockData: config.serpApi.useMockData,
         enabled: config.serpApi.enabled,
         apiKeyConfigured: Boolean(config.serpApi.apiKey),
       });
-      const mock = this.generateMockMetrics(domainName);
-      this.saveToCache(cacheKey, mock);
-      return mock;
+      // Use AI-based analysis instead of mock data
+      const aiBasedMetrics = await this.generateAiBasedMetrics(domainName, keyword);
+      this.saveToCache(cacheKey, aiBasedMetrics);
+      return aiBasedMetrics;
     }
 
     await this.ensureWithinDailyLimit();
@@ -115,9 +117,10 @@ export class SerpApiService {
       if (message.includes('limit') || message.includes('429')) {
         logger.warn('SerpApi rate limit reached, switching to mock metrics');
       }
-      const mock = this.generateMockMetrics(domainName);
-      this.saveToCache(cacheKey, mock);
-      return mock;
+      // Use AI-based analysis instead of mock data
+      const aiBasedMetrics = await this.generateAiBasedMetrics(domainName, keyword);
+      this.saveToCache(cacheKey, aiBasedMetrics);
+      return aiBasedMetrics;
     }
   }
 
@@ -254,47 +257,110 @@ export class SerpApiService {
     return result;
   }
 
-  private generateMockMetrics(domainName: string): SearchMetrics {
-    const baseName = this.extractKeyword(domainName);
-    const hash = this.simpleHash(baseName);
-
-    const volume = 40 + (hash % 60);
-    const trend = ((hash % 200) / 100) - 1;
-    const relatedQueries = [
-      `${baseName} domain`,
-      `${baseName} price`,
-      `${baseName} web3`,
-      `${baseName} market share`,
-      `${baseName} analytics`,
-    ].slice(0, 5);
-
-    const geographicData: Record<string, number> = {
-      US: 40 + (hash % 15),
-      UK: 20 + (hash % 10),
-      DE: 15 + (hash % 10),
-      SG: 10 + (hash % 5),
-      JP: 10 + (hash % 7),
-    };
-
-    return {
-      volume: Math.min(100, Math.max(0, volume)),
-      trend: Math.max(-1, Math.min(1, trend)),
-      relatedQueries,
-      geographicData,
-      timeRange: {
-        start: new Date(Date.now() - config.scoring.trendAnalysisDays * 24 * 60 * 60 * 1000),
-        end: new Date(),
-      },
-    };
-  }
-
-  private simpleHash(value: string): number {
-    let hash = 0;
-    for (let i = 0; i < value.length; i += 1) {
-      hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  private async generateAiBasedMetrics(_domainName: string, keyword: string): Promise<SearchMetrics> {
+    try {
+      // Use AI to analyze keyword relevance and generate realistic metrics
+      const aiAnalysis = await this.analyzeKeywordWithAI(keyword);
+      
+      return {
+        volume: aiAnalysis.volume,
+        trend: aiAnalysis.trend,
+        relatedQueries: aiAnalysis.relatedQueries,
+        geographicData: aiAnalysis.geographicData,
+        timeRange: {
+          start: new Date(Date.now() - config.scoring.trendAnalysisDays * 24 * 60 * 60 * 1000),
+          end: new Date(),
+        },
+      };
+    } catch (error) {
+      logger.error('AI-based metrics generation failed, using conservative fallback', error);
+      // Conservative fallback - assume low volume, stable trend
+      return {
+        volume: 20,
+        trend: 0,
+        relatedQueries: [`${keyword} domain`, `${keyword} web3`],
+        geographicData: { US: 50, UK: 20, DE: 15, SG: 10, JP: 5 },
+        timeRange: {
+          start: new Date(Date.now() - config.scoring.trendAnalysisDays * 24 * 60 * 60 * 1000),
+          end: new Date(),
+        },
+      };
     }
-    return hash;
   }
+
+  private async analyzeKeywordWithAI(keyword: string): Promise<{
+    volume: number;
+    trend: number;
+    relatedQueries: string[];
+    geographicData: Record<string, number>;
+    isTrending: boolean;
+    isGeneric: boolean;
+  }> {
+    try {
+      // Use OpenAI to analyze keyword trends
+      const openai = new OpenAI({
+        apiKey: process.env['OPENAI_API_KEY'],
+      });
+
+      const prompt = `Analyze the keyword "${keyword}" for domain valuation:
+
+1. Search Volume (0-100): How popular is this keyword in web searches?
+2. Trend Direction (-1 to 1): Is this keyword trending up, down, or stable?
+3. Related Queries: What are 5 related search terms?
+4. Geographic Distribution: What countries show most interest (as percentages)?
+5. Is Trending: Is this keyword currently trending in tech/crypto/domains?
+6. Is Generic: Is this a generic/common word?
+
+Respond in JSON format:
+{
+  "volume": number,
+  "trend": number,
+  "relatedQueries": string[],
+  "geographicData": {"US": number, "UK": number, "DE": number, "SG": number, "JP": number, "CA": number, "AU": number, "FR": number, "NL": number, "CH": number},
+  "isTrending": boolean,
+  "isGeneric": boolean
+}`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+      });
+
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
+        throw new Error('No response from OpenAI');
+      }
+
+      const analysis = JSON.parse(response);
+      
+      // Validate and normalize the response
+      return {
+        volume: Math.min(100, Math.max(0, analysis.volume || 30)),
+        trend: Math.max(-1, Math.min(1, analysis.trend || 0)),
+        relatedQueries: analysis.relatedQueries || [`${keyword} domain`, `${keyword} price`],
+        geographicData: analysis.geographicData || { US: 40, UK: 15, DE: 10, SG: 8, JP: 7, CA: 6, AU: 5, FR: 4, NL: 3, CH: 2 },
+        isTrending: analysis.isTrending || false,
+        isGeneric: analysis.isGeneric || false,
+      };
+    } catch (error) {
+      logger.warn('OpenAI analysis failed, using fallback', { keyword, error });
+      
+      // Fallback to simple analysis without hardcoded patterns
+      const keywordLower = keyword.toLowerCase();
+      const isGeneric = keywordLower.length <= 2 || ['a', 'the', 'and', 'or', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by'].includes(keywordLower);
+      
+      return {
+        volume: isGeneric ? 15 : 40,
+        trend: isGeneric ? -0.1 : 0.1,
+        relatedQueries: [`${keyword} domain`, `${keyword} price`, `${keyword} web3`, `buy ${keyword}`, `${keyword} market`],
+        geographicData: { US: 40, UK: 15, DE: 10, SG: 8, JP: 7, CA: 6, AU: 5, FR: 4, NL: 3, CH: 2 },
+        isTrending: false,
+        isGeneric,
+      };
+    }
+  }
+
 }
 
 export const serpApiService = new SerpApiService();
